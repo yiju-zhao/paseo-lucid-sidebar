@@ -1,5 +1,5 @@
 {
-  "name": "paseo-host-sidebar",
+  "name": "paseo-lucid-sidebar",
   "private": true,
   "version": "0.1.0",
   "files": [
@@ -29,6 +29,6 @@
   "description": "A Paseo workspace sidebar that keeps each host's projects and workspaces together under foldable headings.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yiju-zhao/paseo-host-sidebar.git"
+    "url": "git+https://github.com/yiju-zhao/paseo-lucid-sidebar.git"
   }
 }

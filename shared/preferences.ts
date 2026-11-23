@@ -15,7 +15,7 @@ export type ChecksDisplay = (typeof CHECKS_DISPLAY)[number];
 
 const rowItems = z.object({
   branch: z.boolean().default(false),
-  project: z.boolean().default(false),
+  project: z.boolean().default(true),
   host: z.boolean().default(true),
   changeRequest: z.boolean().default(true),
   services: z.boolean().default(true),
@@ -33,7 +33,13 @@ export type RowItem = keyof RowItems;
 export const sidebarSettings = defineSettings({
   id: "sidebar",
   scope: "device",
-  version: 1,
+  version: 2,
+  // v2 turns the project tag on once; it now leads the tags in the project's color.
+  migrate: (values) => {
+    const stored = values as Record<string, unknown>;
+    const items = (stored.rowItems ?? {}) as Record<string, unknown>;
+    return { ...stored, rowItems: { ...items, project: true } };
+  },
   schema: z.object({
     grouping: z.enum(GROUPINGS).default("project"),
     sort: z.enum(SORTS).default("created"),
@@ -42,7 +48,7 @@ export const sidebarSettings = defineSettings({
     checks: z.enum(CHECKS_DISPLAY).default("iconAndText"),
     rowItems: rowItems.default({
       branch: false,
-      project: false,
+      project: true,
       host: true,
       changeRequest: true,
       services: true,
@@ -72,7 +78,7 @@ export const DEFAULT_PREFERENCES: SidebarPreferences = {
   checks: "iconAndText",
   rowItems: {
     branch: false,
-    project: false,
+    project: true,
     host: true,
     changeRequest: true,
     services: true,

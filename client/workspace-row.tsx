@@ -202,7 +202,7 @@ function Row({
           workspace={workspace}
           runtime={runtime}
           projectName={projectName}
-          showProject={variant !== "project"}
+          viewKey={viewKey}
           showHost={!hideHost}
         />
       </Pressable>
@@ -418,9 +418,26 @@ function Separator() {
   return <Text style={{ color: palette.extraMuted, fontSize: 12, lineHeight: 16 }}>·</Text>;
 }
 
-function MetaText({ children, color }: { children: ReactNode; color: string }) {
+function MetaText({
+  children,
+  color,
+  bold,
+}: {
+  children: ReactNode;
+  color: string;
+  bold?: boolean;
+}) {
   return (
-    <Text numberOfLines={1} style={{ color, fontSize: 12, lineHeight: 16, flexShrink: 1 }}>
+    <Text
+      numberOfLines={1}
+      style={{
+        color,
+        fontSize: 12,
+        lineHeight: 16,
+        flexShrink: 1,
+        fontWeight: bold ? "600" : "400",
+      }}
+    >
       {children}
     </Text>
   );
@@ -431,13 +448,14 @@ function MetaRow({
   workspace,
   runtime,
   projectName,
-  showProject,
+  viewKey,
   showHost,
 }: {
   workspace: Workspace;
   runtime: WorkspaceRuntime;
   projectName: string;
-  showProject: boolean;
+  /** Colors the project tag like the project's tile. */
+  viewKey: string;
   showHost: boolean;
 }) {
   const { theme, palette, pointer, preferences, multiHost, localHostId, hosts } = useSidebar();
@@ -457,17 +475,6 @@ function MetaRow({
         </>
       ),
     });
-  if (rowItems.project && showProject)
-    items.push({
-      key: "project",
-      shrink: 1,
-      node: (
-        <>
-          <Icon name="Folder" size={12} color={muted} />
-          <MetaText color={muted}>{projectName}</MetaText>
-        </>
-      ),
-    });
   if (rowItems.host && showHost && multiHost && workspace.hostId !== localHostId) {
     const host = hosts.find((entry) => entry.serverId === workspace.hostId);
     const color = identityColor(workspace.hostId, palette.dark).text;
@@ -477,7 +484,9 @@ function MetaRow({
       node: (
         <>
           <Icon name="Server" size={12} color={color} />
-          <MetaText color={color}>{host?.label ?? workspace.hostId}</MetaText>
+          <MetaText color={color} bold>
+            {host?.label ?? workspace.hostId}
+          </MetaText>
         </>
       ),
     });
@@ -524,15 +533,35 @@ function MetaRow({
       ),
     });
   }
-  if (rowItems.labels && workspace.labels.length > 0)
+  // Tags: the project first, as a chip in its tile's color, then the labels.
+  const labels = rowItems.labels ? workspace.labels : [];
+  if (rowItems.project || labels.length > 0)
     items.push({
-      key: "labels",
+      key: "tags",
       shrink: 1,
       node: (
         <View
           style={{ flexDirection: "row", gap: 4, minWidth: 0, flexShrink: 1, overflow: "hidden" }}
         >
-          {workspace.labels.map((label) => {
+          {rowItems.project ? (
+            <View
+              style={{
+                paddingHorizontal: 6,
+                borderRadius: 999,
+                backgroundColor: identityColor(viewKey, palette.dark).fill,
+                flexShrink: 1,
+                minWidth: 0,
+              }}
+            >
+              <Text
+                numberOfLines={1}
+                style={{ color: "#ffffff", fontSize: 12, lineHeight: 16, fontWeight: "600" }}
+              >
+                {projectName}
+              </Text>
+            </View>
+          ) : null}
+          {labels.map((label) => {
             const color = identityColor(labelKey(label), palette.dark);
             return (
               <View

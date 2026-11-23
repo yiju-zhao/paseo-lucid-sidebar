@@ -272,7 +272,7 @@ function HostHeading({ hostId, label, indent }: { hostId: string; label: string;
       }}
     >
       <Icon name={hostId === localHostId ? "Monitor" : "Server"} size={11} color={color} />
-      <Text numberOfLines={1} style={{ color, fontSize: 11, lineHeight: 14 }}>
+      <Text numberOfLines={1} style={{ color, fontSize: 11, lineHeight: 14, fontWeight: "700" }}>
         {label}
       </Text>
     </View>

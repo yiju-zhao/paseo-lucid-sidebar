@@ -229,7 +229,14 @@ export function GroupRows({
     () => (cluster ? clusterByHost(items, localHostId, hostLabel) : items),
     [cluster, items, localHostId, hostLabel],
   );
-  const { hoisted, shown, hiddenCount } = splitVisible(ordered, {
+  // Host headings only help when the section mixes hosts.
+  const labelled = cluster && new Set(items.map((item) => item.hostId)).size > 1;
+  const hostKey = (hostId: string) => `${expandKey}|host:${hostId}`;
+  const collapsedKeys = preferences.values.collapsed;
+  const open = labelled
+    ? ordered.filter((item) => !collapsedKeys.includes(hostKey(item.hostId)))
+    : ordered;
+  const { hoisted, shown, hiddenCount } = splitVisible(open, {
     limit,
     expanded: isExpanded,
     isDone: doneKeys ? (item) => doneKeys.has(item.key) : undefined,
@@ -239,26 +246,36 @@ export function GroupRows({
     () => setExpanded(expandKey, !isExpanded),
     [setExpanded, expandKey, isExpanded],
   );
-  // Host headings only help when the section mixes hosts.
-  const labelled = cluster && new Set(items.map((item) => item.hostId)).size > 1;
   const indent = variant === "status" ? 16 : 8;
+  const row = (reference: WorkspaceRef) => (
+    <WorkspaceRow
+      key={reference.key}
+      reference={reference}
+      variant={variant}
+      hideHost={labelled || hideHost}
+    />
+  );
+  // Every host keeps its heading, collapsed or not, in the clustered order.
+  const hostOrder = labelled ? [...new Set(ordered.map((item) => item.hostId))] : [];
   return (
     <>
       {hoisted ? <WorkspaceRow reference={hoisted} variant={variant} /> : null}
-      {shown.map((reference, index) => (
-        <Fragment key={reference.key}>
-          {labelled && reference.hostId !== shown[index - 1]?.hostId ? (
-            <HostHeading
-              hostId={reference.hostId}
-              label={hostLabel(reference.hostId)}
-              indent={indent}
-            />
-          ) : null}
-          <WorkspaceRow reference={reference} variant={variant} hideHost={labelled || hideHost} />
-        </Fragment>
-      ))}
+      {labelled
+        ? hostOrder.map((hostId) => (
+            <Fragment key={hostId}>
+              <HostHeading
+                hostId={hostId}
+                label={hostLabel(hostId)}
+                indent={indent}
+                collapseKey={hostKey(hostId)}
+                count={ordered.filter((item) => item.hostId === hostId).length}
+              />
+              {shown.filter((item) => item.hostId === hostId).map(row)}
+            </Fragment>
+          ))
+        : shown.map(row)}
       {hiddenCount > 0 || isExpanded ? (
-        isExpanded && items.length <= limit ? null : (
+        isExpanded && open.length <= limit ? null : (
           <ShowMoreRow
             hiddenCount={hiddenCount}
             expanded={isExpanded}
@@ -271,52 +288,93 @@ export function GroupRows({
   );
 }
 
+/** Whether a collapse key is set, and a toggle that flips it in the stored preferences. */
+export function useCollapsed(key: string) {
+  const { preferences } = useSidebar();
+  const collapsed = preferences.values.collapsed.includes(key);
+  const toggle = useCallback(
+    () =>
+      preferences.update((values) => ({
+        collapsed: values.collapsed.includes(key)
+          ? values.collapsed.filter((entry) => entry !== key)
+          : [...values.collapsed, key],
+      })),
+    [preferences, key],
+  );
+  return { collapsed, toggle };
+}
+
 /**
- * A heading naming the host of what follows, in the host's identity color. `section` is the
- * larger heading above a host's projects.
+ * A heading naming the host of what follows, in the host's identity color. Pressing it folds
+ * what follows. `section` is the larger heading above a host's projects.
  */
 export function HostHeading({
   hostId,
   label,
   indent,
   section,
+  collapseKey,
+  count,
 }: {
   hostId: string;
   label: string;
   indent: number;
   section?: boolean;
+  collapseKey: string;
+  /** Shown while collapsed, so a folded host still says how much it holds. */
+  count: number;
 }) {
-  const { palette, localHostId } = useSidebar();
+  const { palette, localHostId, pointer, theme } = useSidebar();
+  const hover = useHover();
+  const { collapsed, toggle } = useCollapsed(collapseKey);
   const color = identityColor(hostId, palette.dark).text;
+  const size = section ? 12 : 11;
   return (
-    <View
-      accessibilityRole="header"
-      style={{
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} ${label}`}
+      accessibilityState={{ expanded: !collapsed }}
+      onPress={toggle}
+      onHoverIn={hover.onHoverIn}
+      onHoverOut={hover.onHoverOut}
+      style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
-        paddingLeft: section ? indent : indent + 2,
-        paddingTop: section ? 10 : 4,
-        paddingBottom: section ? 4 : 2,
-      }}
+        alignSelf: "flex-start",
+        maxWidth: "100%",
+        marginLeft: section ? indent - 4 : indent - 2,
+        marginTop: section ? 6 : 2,
+        marginBottom: section ? 2 : 0,
+        paddingHorizontal: 4,
+        paddingVertical: section ? 4 : 2,
+        borderRadius: 6,
+        opacity: pressed ? 0.7 : 1,
+        backgroundColor: hover.hovered ? palette.hover : "transparent",
+      })}
     >
-      <Icon
-        name={hostId === localHostId ? "Monitor" : "Server"}
-        size={section ? 12 : 11}
-        color={color}
-      />
+      <Icon name={hostId === localHostId ? "Monitor" : "Server"} size={size} color={color} />
       <Text
         numberOfLines={1}
         style={{
+          flexShrink: 1,
           color,
-          fontSize: section ? 12 : 11,
+          fontSize: size,
           lineHeight: section ? 16 : 14,
           fontWeight: "700",
         }}
       >
         {label}
       </Text>
-    </View>
+      {collapsed ? (
+        <Text style={{ color: theme.colors.foregroundMuted, fontSize: size, lineHeight: 14 }}>
+          {count}
+        </Text>
+      ) : null}
+      {collapsed || hover.hovered || !pointer ? (
+        <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} size={size} color={color} />
+      ) : null}
+    </Pressable>
   );
 }
 

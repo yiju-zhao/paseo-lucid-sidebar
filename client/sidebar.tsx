@@ -322,15 +322,19 @@ function SidebarContent({
                     label={hostLabel(block.hostId)}
                     indent={8}
                     section
+                    collapseKey={`host:${block.hostId}`}
+                    count={blocks.filter((entry) => entry.hostId === block.hostId).length}
                   />
                 ) : null}
-                <ProjectBlock
-                  hideHost={headBlocks}
-                  block={block}
-                  doneKeys={doneKeys}
-                  expanded={expanded}
-                  setExpanded={setExpanded}
-                />
+                {headBlocks && values.collapsed.includes(`host:${block.hostId}`) ? null : (
+                  <ProjectBlock
+                    hideHost={headBlocks}
+                    block={block}
+                    doneKeys={doneKeys}
+                    expanded={expanded}
+                    setExpanded={setExpanded}
+                  />
+                )}
               </Fragment>
             ))
           : orderedStatusGroups.map((group) => (

@@ -63,7 +63,10 @@ export const sidebarSettings = defineSettings({
     projectFilter: z.array(z.string()).default([]),
     /** Lowercased label names; the empty string stands for "Unlabelled". Empty means no filter. */
     labelFilter: z.array(z.string()).default([]),
-    /** `pinned`, `project:<viewKey>` or `status:<indicator>`. */
+    /**
+     * `pinned`, `project:<blockKey>`, `status:<indicator>`, `host:<hostId>` for a host in project
+     * grouping, or `<section>|host:<hostId>` for a host heading inside a section.
+     */
     collapsed: z.array(z.string()).default([]),
   }),
 });

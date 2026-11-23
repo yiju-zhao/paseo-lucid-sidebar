@@ -348,7 +348,16 @@ function ShowMoreRow({
 }
 
 /** A section's rows: flat, or under host headings; then "Show more" when it hides rows. */
-function RowListView({ list, variant }: { list: RowList<WorkspaceRef>; variant: RowVariant }) {
+function RowListView({
+  list,
+  variant,
+  underHost = false,
+}: {
+  list: RowList<WorkspaceRef>;
+  variant: RowVariant;
+  /** The whole list already sits under a host heading. */
+  underHost?: boolean;
+}) {
   const row = (reference: WorkspaceRef, underHost: boolean) => (
     <WorkspaceRow
       key={reference.key}
@@ -373,7 +382,7 @@ function RowListView({ list, variant }: { list: RowList<WorkspaceRef>; variant: 
               {host.rows.map((reference) => row(reference, true))}
             </HostGroup>
           ))
-        : list.rows.map((reference) => row(reference, false))}
+        : list.rows.map((reference) => row(reference, underHost))}
       {list.more ? (
         <ShowMoreRow
           listKey={list.key}
@@ -398,7 +407,13 @@ export function PinnedSection({ list }: { list: RowList<WorkspaceRef> }) {
   );
 }
 
-function ProjectBlockView({ block }: { block: ProjectBlock<ProjectRef, WorkspaceRef> }) {
+function ProjectBlockView({
+  block,
+  underHost,
+}: {
+  block: ProjectBlock<ProjectRef, WorkspaceRef>;
+  underHost: boolean;
+}) {
   const { view, palette } = useSidebar();
   const name = useProject(block.projects[0], (project) => project.displayName) ?? "";
   // New workspaces start on the active workspace's host when the project lives there.
@@ -438,17 +453,24 @@ function ProjectBlockView({ block }: { block: ProjectBlock<ProjectRef, Workspace
       {block.collapsed ? null : block.empty ? (
         <GhostNewWorkspace onPress={newWorkspace} />
       ) : (
-        <RowListView list={block.rows} variant="project" />
+        <RowListView list={block.rows} variant="project" underHost={underHost} />
       )}
     </View>
   );
 }
 
-export function ProjectBlocks({ blocks }: { blocks: ProjectBlock<ProjectRef, WorkspaceRef>[] }) {
+export function ProjectBlocks({
+  blocks,
+  underHost = false,
+}: {
+  blocks: ProjectBlock<ProjectRef, WorkspaceRef>[];
+  /** The blocks sit under a host heading, so rows need not name their host. */
+  underHost?: boolean;
+}) {
   return (
     <>
       {blocks.map((block) => (
-        <ProjectBlockView key={block.key} block={block} />
+        <ProjectBlockView key={block.key} block={block} underHost={underHost} />
       ))}
     </>
   );
@@ -466,7 +488,7 @@ export function HostBlocksView({ host }: { host: HostBlocks<ProjectRef, Workspac
       count={host.count}
       guideBottom={host.guideBottom}
     >
-      <ProjectBlocks blocks={host.blocks} />
+      <ProjectBlocks blocks={host.blocks} underHost />
     </HostGroup>
   );
 }

@@ -1,12 +1,12 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
-import { HostSidebar } from "./client/host-sidebar";
+import { WorkspaceSidebar } from "./client/sidebar";
 
 export default function contribute(client: PluginClientContext) {
   const remove = client.addSidebarView({
     id: "hosts",
-    title: "按 Host 分组",
-    description: "按 Host 分组的工作区列表，项目以标签显示",
-    Component: HostSidebar,
+    title: "Workspace sidebar",
+    description: "The default workspace list, rebuilt as a plugin view",
+    Component: WorkspaceSidebar,
   });
   return () => {
     void remove();

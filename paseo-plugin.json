@@ -1,8 +1,15 @@
 {
   "id": "paseo-host-sidebar",
-  "name": "Host sidebar",
+  "name": "Workspace sidebar",
+  "description": "The built-in workspace list rebuilt as a sidebar view, as a base for custom layouts.",
+  "translations": {
+    "zh-CN": {
+      "name": "工作区侧边栏",
+      "description": "以插件侧边栏视图重建的内置工作区列表，可在此基础上定制布局。"
+    }
+  },
   "media": [],
   "requirements": {
-    "paseo": ">=0.16.0-beta.1"
+    "paseo": ">=0.16.1"
   }
 }

@@ -203,6 +203,7 @@ function Row({
           runtime={runtime}
           projectName={projectName}
           viewKey={viewKey}
+          showProject={variant !== "project"}
           showHost={!hideHost}
         />
       </Pressable>
@@ -449,6 +450,7 @@ function MetaRow({
   runtime,
   projectName,
   viewKey,
+  showProject,
   showHost,
 }: {
   workspace: Workspace;
@@ -456,6 +458,8 @@ function MetaRow({
   projectName: string;
   /** Colors the project tag like the project's tile. */
   viewKey: string;
+  /** Off under a project header, which already names the project. */
+  showProject: boolean;
   showHost: boolean;
 }) {
   const { theme, palette, pointer, preferences, multiHost, localHostId, hosts } = useSidebar();
@@ -464,7 +468,7 @@ function MetaRow({
   const items: { key: string; node: ReactNode; shrink: number }[] = [];
 
   // The project leads the line, as a bold chip in its tile's color.
-  if (rowItems.project)
+  if (rowItems.project && showProject)
     items.push({
       key: "project",
       shrink: 1,

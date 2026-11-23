@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { WorkspaceIndicator } from "@getpaseo/plugin";
 import { useProject, type ProjectRef, type WorkspaceRef } from "@getpaseo/plugin/client";
@@ -6,7 +6,7 @@ import { Icon } from "@getpaseo/plugin/client/ui";
 import { useHover, useSidebar } from "./context";
 import { NeedsInputGlyph, ProjectStatusVisual, StatusRing } from "./indicators";
 import { clusterByHost, splitVisible, STATUS_LABEL, WORKSPACE_LIMIT, PINNED_LIMIT } from "./model";
-import { identityColor } from "./palette";
+import { identityColor, withAlpha } from "./palette";
 import { IconButton, WorkspaceRow, type RowVariant } from "./workspace-row";
 
 /** "Pinned" and "Workspaces": a muted 12px title, optionally collapsible, with trailing actions. */
@@ -253,6 +253,8 @@ export function GroupRows({
       reference={reference}
       variant={variant}
       hideHost={labelled || hideHost}
+      // A host group already indents status rows.
+      indent={labelled && variant === "status" ? 8 : undefined}
     />
   );
   // Every host keeps its heading, collapsed or not, in the clustered order.
@@ -262,16 +264,17 @@ export function GroupRows({
       {hoisted ? <WorkspaceRow reference={hoisted} variant={variant} /> : null}
       {labelled
         ? hostOrder.map((hostId) => (
-            <Fragment key={hostId}>
-              <HostHeading
-                hostId={hostId}
-                label={hostLabel(hostId)}
-                indent={indent}
-                collapseKey={hostKey(hostId)}
-                count={ordered.filter((item) => item.hostId === hostId).length}
-              />
+            <HostGroup
+              key={hostId}
+              hostId={hostId}
+              label={hostLabel(hostId)}
+              // Under the status icon in status groups, under the section's left edge otherwise.
+              guideX={variant === "status" ? 15 : 7}
+              collapseKey={hostKey(hostId)}
+              count={ordered.filter((item) => item.hostId === hostId).length}
+            >
               {shown.filter((item) => item.hostId === hostId).map(row)}
-            </Fragment>
+            </HostGroup>
           ))
         : shown.map(row)}
       {hiddenCount > 0 || isExpanded ? (
@@ -311,14 +314,15 @@ export function useCollapsed(key: string) {
 export function HostHeading({
   hostId,
   label,
-  indent,
+  guideX,
   section,
   collapseKey,
   count,
 }: {
   hostId: string;
   label: string;
-  indent: number;
+  /** Horizontal centre of the host icon, where the guide line below it runs. */
+  guideX: number;
   section?: boolean;
   collapseKey: string;
   /** Shown while collapsed, so a folded host still says how much it holds. */
@@ -343,7 +347,7 @@ export function HostHeading({
         gap: 4,
         alignSelf: "flex-start",
         maxWidth: "100%",
-        marginLeft: section ? indent - 4 : indent - 2,
+        marginLeft: guideX - 4 - size / 2,
         marginTop: section ? 6 : 2,
         marginBottom: section ? 2 : 0,
         paddingHorizontal: 4,
@@ -375,6 +379,73 @@ export function HostHeading({
         <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} size={size} color={color} />
       ) : null}
     </Pressable>
+  );
+}
+
+/** Heading metrics: guide lines start just below the host icon. */
+function guideTop(section: boolean): number {
+  const marginTop = section ? 6 : 2;
+  const paddingVertical = section ? 4 : 2;
+  const lineHeight = section ? 16 : 14;
+  const size = section ? 12 : 11;
+  return marginTop + paddingVertical + lineHeight / 2 + size / 2 + 3;
+}
+
+/**
+ * A host heading and what belongs to it. A thin line in the host's color drops from the host
+ * icon down the left of its projects or workspaces, which are indented to clear it.
+ */
+export function HostGroup({
+  hostId,
+  label,
+  guideX,
+  section,
+  collapseKey,
+  count,
+  bottomGap = 2,
+  children,
+}: {
+  hostId: string;
+  label: string;
+  guideX: number;
+  section?: boolean;
+  collapseKey: string;
+  count: number;
+  /** Space below the last child the line should not reach into. */
+  bottomGap?: number;
+  children: ReactNode;
+}) {
+  const { palette } = useSidebar();
+  const { collapsed } = useCollapsed(collapseKey);
+  const color = identityColor(hostId, palette.dark).text;
+  return (
+    <View>
+      <HostHeading
+        hostId={hostId}
+        label={label}
+        guideX={guideX}
+        section={section}
+        collapseKey={collapseKey}
+        count={count}
+      />
+      {collapsed ? null : (
+        <>
+          <View style={{ paddingLeft: guideX + 5 }}>{children}</View>
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: guideX - 0.5,
+              width: 1,
+              top: guideTop(!!section),
+              bottom: bottomGap,
+              borderRadius: 0.5,
+              backgroundColor: withAlpha(color, 0.45),
+            }}
+          />
+        </>
+      )}
+    </View>
   );
 }
 

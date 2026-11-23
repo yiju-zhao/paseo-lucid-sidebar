@@ -39,15 +39,26 @@ export function WorkspaceRow({
   reference,
   variant,
   hideHost,
+  indent,
 }: {
   reference: WorkspaceRef;
   variant: RowVariant;
   /** Set under a host heading, which already names the host. */
   hideHost?: boolean;
+  /** Left padding, overriding the variant's. */
+  indent?: number;
 }) {
   const workspace = useWorkspace(reference);
   if (!workspace) return null;
-  return <Row workspace={workspace} reference={reference} variant={variant} hideHost={hideHost} />;
+  return (
+    <Row
+      workspace={workspace}
+      reference={reference}
+      variant={variant}
+      hideHost={hideHost}
+      indent={indent}
+    />
+  );
 }
 
 function Row({
@@ -55,11 +66,13 @@ function Row({
   reference,
   variant,
   hideHost,
+  indent: indentOverride,
 }: {
   workspace: Workspace;
   reference: WorkspaceRef;
   variant: RowVariant;
   hideHost?: boolean;
+  indent?: number;
 }) {
   const sidebar = useSidebar();
   const { view, theme, palette, touch, pointer, preferences, directory, openMenu, setOpenMenu } =
@@ -120,7 +133,7 @@ function Row({
     else archive();
   }, [workspace.kind, setOpenMenu, confirmKey, archive]);
 
-  const indent = variant === "status" ? 16 : 8;
+  const indent = indentOverride ?? (variant === "status" ? 16 : 8);
   const title = displayTitle(workspace, values.titleSource);
   const leading =
     variant === "project" ? (

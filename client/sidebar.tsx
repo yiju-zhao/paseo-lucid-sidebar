@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import {
   useHosts,
@@ -31,7 +31,7 @@ import { usePreferences } from "./preferences";
 import { RuntimeProvider, useProjectDirectory } from "./runtime";
 import {
   EmptyCard,
-  HostHeading,
+  HostGroup,
   PinnedSection,
   ProjectBlock,
   SectionHeader,
@@ -210,6 +210,7 @@ function SidebarContent({
   ]);
   const blockHosts = new Set(blocks.map((block) => block.hostId)).size;
   const headBlocks = cluster && blockHosts > 1;
+  const blockHostOrder = [...new Set(blocks.map((block) => block.hostId))];
 
   const statusGroups = useWorkspaces({
     where: listed,
@@ -314,29 +315,47 @@ function SidebarContent({
         ) : null}
         {displayOpen ? <DisplayMenu projects={projectOptions} labels={labels} /> : null}
         {projectMode
-          ? blocks.map((block, index) => (
-              <Fragment key={block.key}>
-                {headBlocks && block.hostId !== blocks[index - 1]?.hostId ? (
-                  <HostHeading
-                    hostId={block.hostId}
-                    label={hostLabel(block.hostId)}
-                    indent={8}
+          ? headBlocks
+            ? blockHostOrder.map((hostId) => {
+                const own = blocks.filter((block) => block.hostId === hostId);
+                const last = own[own.length - 1];
+                // An open, non-empty last project pads its bottom; keep the line off that space.
+                const lastPadded =
+                  !values.collapsed.includes(`project:${last.key}`) &&
+                  (last.items.length > 0 || last.empty);
+                return (
+                  <HostGroup
+                    key={hostId}
+                    hostId={hostId}
+                    label={hostLabel(hostId)}
+                    guideX={7}
                     section
-                    collapseKey={`host:${block.hostId}`}
-                    count={blocks.filter((entry) => entry.hostId === block.hostId).length}
-                  />
-                ) : null}
-                {headBlocks && values.collapsed.includes(`host:${block.hostId}`) ? null : (
-                  <ProjectBlock
-                    hideHost={headBlocks}
-                    block={block}
-                    doneKeys={doneKeys}
-                    expanded={expanded}
-                    setExpanded={setExpanded}
-                  />
-                )}
-              </Fragment>
-            ))
+                    collapseKey={`host:${hostId}`}
+                    count={own.length}
+                    bottomGap={lastPadded ? 14 : 6}
+                  >
+                    {own.map((block) => (
+                      <ProjectBlock
+                        key={block.key}
+                        hideHost
+                        block={block}
+                        doneKeys={doneKeys}
+                        expanded={expanded}
+                        setExpanded={setExpanded}
+                      />
+                    ))}
+                  </HostGroup>
+                );
+              })
+            : blocks.map((block) => (
+                <ProjectBlock
+                  key={block.key}
+                  block={block}
+                  doneKeys={doneKeys}
+                  expanded={expanded}
+                  setExpanded={setExpanded}
+                />
+              ))
           : orderedStatusGroups.map((group) => (
               <StatusGroup
                 key={group.key}

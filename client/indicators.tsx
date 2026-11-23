@@ -112,7 +112,7 @@ export function IndicatorGlyph({ indicator }: { indicator: WorkspaceIndicator })
 }
 
 /** The leading 16px (20px on touch) slot every row and header shares. */
-export function LeadingSlot({ children }: { children: ReactNode }) {
+export function LeadingSlot({ children }: { children?: ReactNode }) {
   const { touch } = useSidebar();
   return (
     <View

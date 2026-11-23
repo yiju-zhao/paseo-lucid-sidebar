@@ -5,7 +5,7 @@ import { TextInput, useToast } from "@getpaseo/plugin/client/ui";
 import { useNow } from "./clock";
 import { useHover, useSidebar } from "./context";
 import { IconButton } from "./controls";
-import { ProjectStatusVisual, StatusIndicator } from "./indicators";
+import { StatusIndicator } from "./indicators";
 import { compactNumber, displayTitle, formatAge, type Workspace } from "./model";
 import { MetaRow } from "./row-items";
 import { ArchiveConfirm, errorText, WorkspaceMenu } from "./row-menu";
@@ -13,9 +13,12 @@ import { useWorkspaceRuntime } from "./runtime";
 import { useMenu, useRenaming } from "./ui-state";
 
 /**
- * `project`: under a project header, with a status indicator.
- * `pinned`: in the Pinned section, with the project tile and a status badge.
- * `status`: inside a status group, with the project tile.
+ * Where a row sits. The leading slot shows only what the row's context does not already say,
+ * and the project tag on the second line names the project wherever no header does:
+ * `project`: under a project header; the slot shows the status.
+ * `pinned`: in the Pinned section; the slot shows the status.
+ * `status`: inside a status group, whose header gives the status; no slot, so the title and
+ * project tag start at the row's edge. A ring shows only while the row archives.
  */
 export type RowVariant = "project" | "pinned" | "status";
 
@@ -117,18 +120,11 @@ function Row({
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-            {variant === "project" ? (
+            {variant === "status" && !archiving ? null : (
               <StatusIndicator
                 indicator={workspace.indicator}
                 kind={workspace.kind}
                 loading={archiving}
-              />
-            ) : (
-              <ProjectStatusVisual
-                viewKey={viewKey}
-                name={projectName}
-                indicator={archiving ? "running" : workspace.indicator}
-                backdrop={backdrop}
               />
             )}
             {rename.renaming ? (

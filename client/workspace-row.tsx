@@ -78,7 +78,8 @@ function Row({
   const renaming = sidebar.renaming === reference.key;
   const selected = view.active.workspace?.key === reference.key;
   const archiving = !!workspace.archivingAt;
-  const hovered = pointer && hover.hovered && !renaming && !menuOpen;
+  // An open menu keeps the row highlighted and its buttons shown, so ⋯ can close it again.
+  const hovered = pointer && !renaming && (hover.hovered || menuOpen);
 
   const backdropBase =
     palette.background === "transparent" ? theme.colors.surface0 : palette.background;
@@ -192,6 +193,7 @@ function Row({
             <Trailing
               workspace={workspace}
               hovered={hovered}
+              menuOpen={menuOpen}
               backdrop={backdrop}
               onArchive={requestArchive}
               onMenu={toggleMenu}
@@ -219,6 +221,7 @@ function Row({
 function Trailing({
   workspace,
   hovered,
+  menuOpen,
   backdrop,
   onArchive,
   onMenu,
@@ -226,6 +229,8 @@ function Trailing({
 }: {
   workspace: Workspace;
   hovered: boolean;
+  /** Draws ⋯ pressed in while its menu is open. */
+  menuOpen: boolean;
   backdrop: string;
   onArchive: () => void;
   onMenu: () => void;
@@ -241,6 +246,7 @@ function Trailing({
           icon="MoreVertical"
           label={`More actions for ${workspace.name}`}
           onPress={onMenu}
+          active={menuOpen}
           size={32}
           iconSize={18}
           style={{ marginTop: -6, marginRight: -14 }}
@@ -297,6 +303,7 @@ function Trailing({
               icon="MoreVertical"
               label={`More actions for ${workspace.name}`}
               onPress={onMenu}
+              active={menuOpen}
               size={18}
               iconSize={14}
               style={{ marginRight: -7 }}
@@ -328,6 +335,7 @@ export function IconButton({
   iconSize,
   style,
   hoverFill,
+  active,
 }: {
   icon: string;
   label: string;
@@ -336,13 +344,17 @@ export function IconButton({
   iconSize: number;
   style?: object;
   hoverFill?: string;
+  /** Held down, such as the ⋯ of an open menu. */
+  active?: boolean;
 }) {
   const { theme } = useSidebar();
   const hover = useHover();
+  const lit = hover.hovered || !!active;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={active === undefined ? undefined : { expanded: active }}
       onPress={onPress}
       onHoverIn={hover.onHoverIn}
       onHoverOut={hover.onHoverOut}
@@ -354,8 +366,7 @@ export function IconButton({
           borderRadius: size >= 24 ? 6 : 4,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor:
-            hover.hovered || pressed ? (hoverFill ?? theme.colors.surface2) : "transparent",
+          backgroundColor: lit || pressed ? (hoverFill ?? theme.colors.surface2) : "transparent",
         },
         style,
       ]}
@@ -363,7 +374,7 @@ export function IconButton({
       <Icon
         name={icon}
         size={iconSize}
-        color={hover.hovered ? theme.colors.foreground : theme.colors.foregroundMuted}
+        color={lit ? theme.colors.foreground : theme.colors.foregroundMuted}
       />
     </Pressable>
   );

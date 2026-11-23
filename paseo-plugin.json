@@ -1,0 +1,8 @@
+{
+  "id": "paseo-host-sidebar",
+  "name": "Host sidebar",
+  "media": [],
+  "requirements": {
+    "paseo": ">=0.16.0-beta.1"
+  }
+}

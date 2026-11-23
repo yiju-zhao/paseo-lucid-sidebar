@@ -89,42 +89,47 @@ function GroupHeaderRow({
   hover: ReturnType<typeof useHover>;
 }) {
   const { theme, palette, touch } = useSidebar();
+  // Hover is tracked on a wrapping View so the + button does not end it: see useHover.
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} ${label}`}
-      accessibilityState={{ expanded: !collapsed }}
-      onPress={onToggle}
-      onHoverIn={hover.onHoverIn}
-      onHoverOut={hover.onHoverOut}
-      style={({ pressed }) => ({
-        minHeight: touch ? 44 : 36,
-        paddingVertical: 8,
-        paddingHorizontal: 8,
-        borderRadius: 8,
-        marginBottom: 4,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 8,
-        backgroundColor: pressed ? palette.pressed : hover.hovered ? palette.hover : "transparent",
-      })}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-        {leading}
-        <Text
-          numberOfLines={1}
-          style={{ flex: 1, color: theme.colors.foregroundMuted, fontSize: 14, lineHeight: 20 }}
-        >
-          {label}
-        </Text>
-      </View>
-      {actions ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginRight: -6 }}>
-          {actions}
+    <View onPointerEnter={hover.onPointerEnter} onPointerLeave={hover.onPointerLeave}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} ${label}`}
+        accessibilityState={{ expanded: !collapsed }}
+        onPress={onToggle}
+        style={({ pressed }) => ({
+          minHeight: touch ? 44 : 36,
+          paddingVertical: 8,
+          paddingHorizontal: 8,
+          borderRadius: 8,
+          marginBottom: 4,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          backgroundColor: pressed
+            ? palette.pressed
+            : hover.hovered
+              ? palette.hover
+              : "transparent",
+        })}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+          {leading}
+          <Text
+            numberOfLines={1}
+            style={{ flex: 1, color: theme.colors.foregroundMuted, fontSize: 14, lineHeight: 20 }}
+          >
+            {label}
+          </Text>
         </View>
-      ) : null}
-    </Pressable>
+        {actions ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginRight: -6 }}>
+            {actions}
+          </View>
+        ) : null}
+      </Pressable>
+    </View>
   );
 }
 

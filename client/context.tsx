@@ -37,10 +37,24 @@ export function useSidebar(): SidebarContextValue {
   return value;
 }
 
-/** Hover state from `onHoverIn`/`onHoverOut`; always false on touch platforms. */
+/**
+ * Hover state. Spread `onHoverIn`/`onHoverOut` on a leaf `Pressable`. For anything that contains
+ * other pressables, put `onPointerEnter`/`onPointerLeave` on a wrapping `View` instead:
+ * react-native-web's `Pressable` ends its own hover when the pointer enters a nested
+ * `Pressable`, which would hide the very buttons the pointer is moving to.
+ */
 export function useHover() {
   const [hovered, setHovered] = useState(false);
   const onHoverIn = useCallback(() => setHovered(true), []);
   const onHoverOut = useCallback(() => setHovered(false), []);
-  return useMemo(() => ({ hovered, onHoverIn, onHoverOut }), [hovered, onHoverIn, onHoverOut]);
+  return useMemo(
+    () => ({
+      hovered,
+      onHoverIn,
+      onHoverOut,
+      onPointerEnter: onHoverIn,
+      onPointerLeave: onHoverOut,
+    }),
+    [hovered, onHoverIn, onHoverOut],
+  );
 }

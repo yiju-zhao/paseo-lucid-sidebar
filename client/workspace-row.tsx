@@ -146,67 +146,68 @@ function Row({
 
   return (
     <View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${workspace.name}, ${workspace.indicatorLabel ?? ""}`}
-        accessibilityState={{ selected, disabled: archiving }}
-        disabled={archiving}
-        onPress={open}
-        onLongPress={toggleMenu}
-        onPressIn={() => setPressed(true)}
-        onPressOut={() => setPressed(false)}
-        onHoverIn={hover.onHoverIn}
-        onHoverOut={hover.onHoverOut}
-        unstable_pressDelay={touch ? 130 : undefined}
-        style={{
-          minHeight: touch ? 44 : 36,
-          marginBottom: 2,
-          paddingVertical: 8,
-          paddingLeft: indent,
-          paddingRight: 12,
-          borderRadius: 8,
-          gap: 4,
-          justifyContent: variant === "status" ? "flex-start" : "center",
-          backgroundColor: pressed || selected || hovered ? backdrop : "transparent",
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-          {leading}
-          {renaming ? (
-            <RenameInput reference={reference} initial={workspace.title ?? workspace.name} />
-          ) : (
-            <Text
-              numberOfLines={1}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                color: theme.colors.foreground,
-                fontSize: 14,
-                lineHeight: 20,
-                opacity: hovered ? 1 : 0.76,
-              }}
-            >
-              {title}
-            </Text>
-          )}
-          <Trailing
+      {/* Hover is tracked here, not on the Pressable: see useHover. */}
+      <View onPointerEnter={hover.onPointerEnter} onPointerLeave={hover.onPointerLeave}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${workspace.name}, ${workspace.indicatorLabel ?? ""}`}
+          accessibilityState={{ selected, disabled: archiving }}
+          disabled={archiving}
+          onPress={open}
+          onLongPress={toggleMenu}
+          onPressIn={() => setPressed(true)}
+          onPressOut={() => setPressed(false)}
+          unstable_pressDelay={touch ? 130 : undefined}
+          style={{
+            minHeight: touch ? 44 : 36,
+            marginBottom: 2,
+            paddingVertical: 8,
+            paddingLeft: indent,
+            paddingRight: 12,
+            borderRadius: 8,
+            gap: 4,
+            justifyContent: variant === "status" ? "flex-start" : "center",
+            backgroundColor: pressed || selected || hovered ? backdrop : "transparent",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+            {leading}
+            {renaming ? (
+              <RenameInput reference={reference} initial={workspace.title ?? workspace.name} />
+            ) : (
+              <Text
+                numberOfLines={1}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  color: theme.colors.foreground,
+                  fontSize: 14,
+                  lineHeight: 20,
+                  opacity: hovered ? 1 : 0.76,
+                }}
+              >
+                {title}
+              </Text>
+            )}
+            <Trailing
+              workspace={workspace}
+              hovered={hovered}
+              backdrop={backdrop}
+              onArchive={requestArchive}
+              onMenu={toggleMenu}
+              archiving={archiving}
+            />
+          </View>
+          <MetaRow
             workspace={workspace}
-            hovered={hovered}
-            backdrop={backdrop}
-            onArchive={requestArchive}
-            onMenu={toggleMenu}
-            archiving={archiving}
+            runtime={runtime}
+            projectName={projectName}
+            viewKey={viewKey}
+            showProject={variant !== "project"}
+            showHost={!hideHost}
           />
-        </View>
-        <MetaRow
-          workspace={workspace}
-          runtime={runtime}
-          projectName={projectName}
-          viewKey={viewKey}
-          showProject={variant !== "project"}
-          showHost={!hideHost}
-        />
-      </Pressable>
+        </Pressable>
+      </View>
       {menuOpen ? (
         <WorkspaceMenu workspace={workspace} reference={reference} onArchive={requestArchive} />
       ) : null}

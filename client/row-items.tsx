@@ -102,14 +102,14 @@ const ROW_ITEMS: readonly RowItemDefinition[] = [
     toggle: { key: "project", label: "Project", icon: "Folder", order: 1 },
     shrink: 1,
     enabled: rowItem("project"),
-    // A chip in the project tile's color leads the line.
+    // A chip in the project tile's color leads the line; bold in project grouping only.
     render: ({ underProject, projectName, viewKey, sidebar }) =>
       underProject ? null : (
         <Chip
           label={projectName}
           background={identityColor(viewKey, sidebar.palette.dark).fill}
           color={sidebar.palette.onIdentity}
-          bold
+          bold={sidebar.preferences.values.grouping === "project"}
         />
       ),
   },

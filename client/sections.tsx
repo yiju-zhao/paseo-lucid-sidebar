@@ -182,8 +182,8 @@ function DisclosureRow({
 
 /** Host heading metrics, shared by the heading and the guide line below its icon. */
 const HOST_HEADING = {
-  section: { size: 12, lineHeight: 16, marginTop: 6, marginBottom: 2, paddingVertical: 4 },
-  inline: { size: 11, lineHeight: 14, marginTop: 2, marginBottom: 0, paddingVertical: 2 },
+  section: { size: 13, lineHeight: 18, marginTop: 6, marginBottom: 2, paddingVertical: 4 },
+  inline: { size: 13, lineHeight: 18, marginTop: 2, marginBottom: 0, paddingVertical: 2 },
 };
 
 /**

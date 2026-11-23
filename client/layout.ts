@@ -156,8 +156,9 @@ export interface HostBlocks<P extends Item, T extends Item> {
   hostId: string;
   collapseKey: string;
   collapsed: boolean;
-  /** Projects under the host, shown or not. */
+  /** Projects under the host. */
   count: number;
+  /** The host's blocks; renderers skip them while the host is folded. */
   blocks: ProjectBlock<P, T>[];
   /** Where the guide line stops above the group's bottom edge. */
   guideBottom: number;
@@ -241,7 +242,7 @@ export function buildProjects<P extends Item, T extends Item>(
         collapseKey,
         collapsed,
         count: own.length,
-        blocks: collapsed ? [] : own,
+        blocks: own,
         guideBottom: (last.spacing || HEADER_MARGIN) + 2,
       };
     }),
@@ -278,4 +279,39 @@ export function buildStatusGroups<T extends Item>(
         }),
       };
     });
+}
+
+// Fold all / unfold all ------------------------------------------------------------------------
+
+/** Every fold in project grouping: host headings and projects. */
+export function projectDisclosures<P extends Item, T extends Item>(
+  layout: ProjectLayout<P, T>,
+): string[] {
+  const blocks = layout.hosts ? layout.hosts.flatMap((host) => host.blocks) : layout.blocks;
+  return unique([
+    ...(layout.hosts ?? []).map((host) => host.collapseKey),
+    ...blocks.map((block) => block.collapseKey),
+  ]);
+}
+
+/** Every fold in status grouping: status groups and the host headings inside them. */
+export function statusDisclosures<T extends Item>(sections: readonly StatusSection<T>[]): string[] {
+  return unique(
+    sections.flatMap((section) => [
+      section.collapseKey,
+      ...(section.rows.hosts ?? []).map((host) => host.collapseKey),
+    ]),
+  );
+}
+
+const unique = (items: readonly string[]) => [...new Set(items)];
+
+/**
+ * The stored collapse keys after "fold all" or "unfold all" over `disclosures`: fold all while
+ * anything is open, otherwise unfold all. Other keys, such as Pinned, are kept.
+ */
+export function toggleAll(collapsed: readonly string[], disclosures: readonly string[]): string[] {
+  const anyOpen = disclosures.some((key) => !collapsed.includes(key));
+  if (anyOpen) return unique([...collapsed, ...disclosures]);
+  return collapsed.filter((key) => !disclosures.includes(key));
 }

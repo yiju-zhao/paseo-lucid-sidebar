@@ -5,7 +5,15 @@ import { ScrollView } from "@getpaseo/plugin/client/ui";
 import { makeHostDirectory, SidebarContextProvider, type SidebarContextValue } from "./context";
 import { IconButton } from "./controls";
 import { DisplayMenu } from "./display-menu";
-import { buildPinned, buildProjects, buildStatusGroups, type ListState } from "./layout";
+import {
+  buildPinned,
+  buildProjects,
+  buildStatusGroups,
+  projectDisclosures,
+  statusDisclosures,
+  toggleAll,
+  type ListState,
+} from "./layout";
 import { useLocalHostId } from "./local-host";
 import { hasFilter } from "./model";
 import { makePalette } from "./palette";
@@ -104,6 +112,10 @@ function SidebarContent({
   const listEmpty = projectMode
     ? projects.blocks.length === 0 && !projects.hosts?.length
     : statuses.length === 0;
+  const disclosures = projectMode ? projectDisclosures(projects) : statusDisclosures(statuses);
+  const anyOpen = disclosures.some((key) => !state.collapsed.has(key));
+  const foldAll = () =>
+    preferences.update((current) => ({ collapsed: toggleAll(current.collapsed, disclosures) }));
   const clearFilters = () =>
     preferences.update({ hostFilter: [], projectFilter: [], labelFilter: [] });
 
@@ -120,15 +132,27 @@ function SidebarContent({
           <SectionHeader
             title="Workspaces"
             actions={
-              <IconButton
-                icon="Settings2"
-                label="Display preferences"
-                onPress={display.toggle}
-                active={display.open}
-                size={28}
-                iconSize={14}
-                hoverFill={palette.hover}
-              />
+              <>
+                {disclosures.length > 0 ? (
+                  <IconButton
+                    icon={anyOpen ? "ChevronsDownUp" : "ChevronsUpDown"}
+                    label={anyOpen ? "Collapse all" : "Expand all"}
+                    onPress={foldAll}
+                    size={28}
+                    iconSize={14}
+                    hoverFill={palette.hover}
+                  />
+                ) : null}
+                <IconButton
+                  icon="Settings2"
+                  label="Display preferences"
+                  onPress={display.toggle}
+                  active={display.open}
+                  size={28}
+                  iconSize={14}
+                  hoverFill={palette.hover}
+                />
+              </>
             }
           />
         ) : null}

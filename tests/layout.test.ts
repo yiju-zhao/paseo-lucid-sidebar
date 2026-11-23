@@ -7,6 +7,9 @@ import {
   buildRowList,
   buildStatusGroups,
   pairKey,
+  projectDisclosures,
+  statusDisclosures,
+  toggleAll,
   type ListState,
 } from "../client/layout";
 import { keys } from "../client/keys";
@@ -193,7 +196,7 @@ describe("buildProjects", () => {
     assert.equal(layout.blocks.length, 0);
   });
 
-  it("hides a folded host's blocks but still counts them", () => {
+  it("marks a folded host and still counts its blocks", () => {
     const inputs = [
       { ref: project(LOCAL, "p1"), viewKey: "one" },
       { ref: project(REMOTE, "p2"), viewKey: "two" },
@@ -208,7 +211,7 @@ describe("buildProjects", () => {
     );
     const remote = layout.hosts?.find((host) => host.hostId === REMOTE);
     assert.equal(remote?.count, 2);
-    assert.equal(remote?.blocks.length, 0);
+    assert.equal(remote?.collapsed, true);
   });
 
   it("aggregates the most urgent status, ignoring done rows", () => {
@@ -235,5 +238,43 @@ describe("buildStatusGroups", () => {
       buildStatusGroups(groups, state()).map((group) => group.indicator),
       ["needs_input", "running", "done", "future_status"],
     );
+  });
+});
+
+describe("fold all", () => {
+  const project = (hostId: string, id: string) => ({ key: `${hostId}/${id}`, hostId, id });
+
+  it("lists every host and project fold once in project grouping", () => {
+    const inputs = [
+      { ref: project(LOCAL, "p1"), viewKey: "repo" },
+      { ref: project(REMOTE, "p2"), viewKey: "repo" },
+    ];
+    const facts = {
+      rows: new Map([["repo", [row(LOCAL, "a"), row(REMOTE, "b")]]]),
+      ever: new Set([pairKey(LOCAL, "repo"), pairKey(REMOTE, "repo")]),
+      kept: new Set([pairKey(LOCAL, "repo"), pairKey(REMOTE, "repo")]),
+      indicators: new Map(),
+    };
+    const layout = buildProjects(inputs, facts, state(), { projects: [], labels: false });
+    assert.deepEqual(
+      projectDisclosures(layout).sort(),
+      [keys.host(LOCAL), keys.host(REMOTE), keys.project("repo")].sort(),
+    );
+  });
+
+  it("lists status groups and their host headings", () => {
+    const groups = [{ key: "done", title: null, items: [row(LOCAL, "a"), row(REMOTE, "b")] }];
+    assert.deepEqual(statusDisclosures(buildStatusGroups(groups, state())), [
+      keys.status("done"),
+      keys.sectionHost(keys.status("done"), LOCAL),
+      keys.sectionHost(keys.status("done"), REMOTE),
+    ]);
+  });
+
+  it("folds everything while anything is open, then unfolds, keeping other keys", () => {
+    const all = ["a", "b"];
+    const folded = toggleAll(["pinned", "a"], all);
+    assert.deepEqual(folded, ["pinned", "a", "b"]);
+    assert.deepEqual(toggleAll(folded, all), ["pinned"]);
   });
 });

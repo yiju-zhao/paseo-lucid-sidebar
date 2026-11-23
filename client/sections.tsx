@@ -80,8 +80,11 @@ function GroupHeaderRow({
   onToggle,
   actions,
   hover,
+  bold,
 }: {
   label: string;
+  /** Project headers set this; status group headers keep the regular weight. */
+  bold?: boolean;
   leading: ReactNode;
   collapsed: boolean;
   onToggle: () => void;
@@ -118,7 +121,13 @@ function GroupHeaderRow({
           {leading}
           <Text
             numberOfLines={1}
-            style={{ flex: 1, color: theme.colors.foregroundMuted, fontSize: 14, lineHeight: 20 }}
+            style={{
+              flex: 1,
+              color: theme.colors.foregroundMuted,
+              fontSize: 14,
+              lineHeight: 20,
+              fontWeight: bold ? "600" : "400",
+            }}
           >
             {label}
           </Text>
@@ -383,6 +392,7 @@ export function ProjectBlock({
     <View style={{ paddingBottom: !collapsed && (block.items.length > 0 || block.empty) ? 12 : 0 }}>
       <GroupHeaderRow
         label={name}
+        bold
         leading={leading}
         collapsed={collapsed}
         onToggle={toggle}

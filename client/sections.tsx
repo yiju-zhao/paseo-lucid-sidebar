@@ -1,11 +1,12 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useMemo, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { WorkspaceIndicator } from "@getpaseo/plugin";
 import { useProject, type ProjectRef, type WorkspaceRef } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/ui";
 import { useHover, useSidebar } from "./context";
 import { NeedsInputGlyph, ProjectStatusVisual, StatusRing } from "./indicators";
-import { splitVisible, STATUS_LABEL, WORKSPACE_LIMIT, PINNED_LIMIT } from "./model";
+import { clusterByHost, splitVisible, STATUS_LABEL, WORKSPACE_LIMIT, PINNED_LIMIT } from "./model";
+import { identityColor } from "./palette";
 import { IconButton, WorkspaceRow, type RowVariant } from "./workspace-row";
 
 /** "Pinned" and "Workspaces": a muted 12px title, optionally collapsible, with trailing actions. */
@@ -201,9 +202,18 @@ export function GroupRows({
   expanded: ReadonlySet<string>;
   setExpanded: (key: string, on: boolean) => void;
 }) {
-  const { view } = useSidebar();
+  const { view, preferences, localHostId, hosts } = useSidebar();
   const isExpanded = expanded.has(expandKey);
-  const { hoisted, shown, hiddenCount } = splitVisible(items, {
+  const cluster = preferences.values.clusterByHost;
+  const hostLabel = useCallback(
+    (hostId: string) => hosts.find((host) => host.serverId === hostId)?.label ?? hostId,
+    [hosts],
+  );
+  const ordered = useMemo(
+    () => (cluster ? clusterByHost(items, localHostId, hostLabel) : items),
+    [cluster, items, localHostId, hostLabel],
+  );
+  const { hoisted, shown, hiddenCount } = splitVisible(ordered, {
     limit,
     expanded: isExpanded,
     isDone: doneKeys ? (item) => doneKeys.has(item.key) : undefined,
@@ -213,11 +223,23 @@ export function GroupRows({
     () => setExpanded(expandKey, !isExpanded),
     [setExpanded, expandKey, isExpanded],
   );
+  // Host headings only help when the section mixes hosts.
+  const labelled = cluster && new Set(items.map((item) => item.hostId)).size > 1;
+  const indent = variant === "status" ? 16 : 8;
   return (
     <>
       {hoisted ? <WorkspaceRow reference={hoisted} variant={variant} /> : null}
-      {shown.map((reference) => (
-        <WorkspaceRow key={reference.key} reference={reference} variant={variant} />
+      {shown.map((reference, index) => (
+        <Fragment key={reference.key}>
+          {labelled && reference.hostId !== shown[index - 1]?.hostId ? (
+            <HostHeading
+              hostId={reference.hostId}
+              label={hostLabel(reference.hostId)}
+              indent={indent}
+            />
+          ) : null}
+          <WorkspaceRow reference={reference} variant={variant} hideHost={labelled} />
+        </Fragment>
       ))}
       {hiddenCount > 0 || isExpanded ? (
         isExpanded && items.length <= limit ? null : (
@@ -225,11 +247,35 @@ export function GroupRows({
             hiddenCount={hiddenCount}
             expanded={isExpanded}
             onToggle={toggle}
-            indent={variant === "status" ? 16 : 8}
+            indent={indent}
           />
         )
       ) : null}
     </>
+  );
+}
+
+/** A small heading naming the host of the rows below it, in the host's identity color. */
+function HostHeading({ hostId, label, indent }: { hostId: string; label: string; indent: number }) {
+  const { palette, localHostId } = useSidebar();
+  const color = identityColor(hostId, palette.dark).text;
+  return (
+    <View
+      accessibilityRole="header"
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingLeft: indent + 2,
+        paddingTop: 4,
+        paddingBottom: 2,
+      }}
+    >
+      <Icon name={hostId === localHostId ? "Monitor" : "Server"} size={11} color={color} />
+      <Text numberOfLines={1} style={{ color, fontSize: 11, lineHeight: 14 }}>
+        {label}
+      </Text>
+    </View>
   );
 }
 

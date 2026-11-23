@@ -199,3 +199,19 @@ export function projectInitial(name: string): string {
   const segment = name.split("/").filter(Boolean).pop() ?? name;
   return (segment.trim()[0] ?? "?").toUpperCase();
 }
+
+/**
+ * Stable partition by host: the local host first, then hosts by label. Order inside a host is
+ * kept, so the section's own sort still applies within each host.
+ */
+export function clusterByHost<T extends { hostId: string }>(
+  items: readonly T[],
+  localHostId: string | null,
+  hostLabel: (hostId: string) => string,
+): T[] {
+  const rank = (hostId: string) => (hostId === localHostId ? 0 : 1);
+  const order = [...new Set(items.map((item) => item.hostId))].sort(
+    (a, b) => rank(a) - rank(b) || compareNames(hostLabel(a), hostLabel(b)) || a.localeCompare(b),
+  );
+  return order.flatMap((hostId) => items.filter((item) => item.hostId === hostId));
+}

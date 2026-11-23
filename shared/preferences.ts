@@ -49,6 +49,8 @@ export const sidebarSettings = defineSettings({
       labels: true,
     }),
     showBackground: z.boolean().default(false),
+    /** Inside each section, keep a host's workspaces together: local host first, then by name. */
+    clusterByHost: z.boolean().default(true),
     /** Server ids. Empty means every host. */
     hostFilter: z.array(z.string()).default([]),
     /** Project view keys. Empty means every project. */
@@ -77,6 +79,7 @@ export const DEFAULT_PREFERENCES: SidebarPreferences = {
     labels: true,
   },
   showBackground: false,
+  clusterByHost: true,
   hostFilter: [],
   projectFilter: [],
   labelFilter: [],

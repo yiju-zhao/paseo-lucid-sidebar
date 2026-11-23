@@ -324,6 +324,14 @@ export function DisplayMenu({
         </>
       ) : null}
       <MenuSeparator />
+      {hosts.length > 1 ? (
+        <MenuItem
+          icon="Server"
+          label="Keep hosts together"
+          checked={values.clusterByHost}
+          onPress={() => set({ clusterByHost: !values.clusterByHost })}
+        />
+      ) : null}
       <MenuItem
         icon="EyeOff"
         label="Show background"

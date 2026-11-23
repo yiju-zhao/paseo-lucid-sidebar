@@ -38,23 +38,28 @@ function message(error: unknown): string {
 export function WorkspaceRow({
   reference,
   variant,
+  hideHost,
 }: {
   reference: WorkspaceRef;
   variant: RowVariant;
+  /** Set under a host heading, which already names the host. */
+  hideHost?: boolean;
 }) {
   const workspace = useWorkspace(reference);
   if (!workspace) return null;
-  return <Row workspace={workspace} reference={reference} variant={variant} />;
+  return <Row workspace={workspace} reference={reference} variant={variant} hideHost={hideHost} />;
 }
 
 function Row({
   workspace,
   reference,
   variant,
+  hideHost,
 }: {
   workspace: Workspace;
   reference: WorkspaceRef;
   variant: RowVariant;
+  hideHost?: boolean;
 }) {
   const sidebar = useSidebar();
   const { view, theme, palette, touch, pointer, preferences, directory, openMenu, setOpenMenu } =
@@ -198,6 +203,7 @@ function Row({
           runtime={runtime}
           projectName={projectName}
           showProject={variant !== "project"}
+          showHost={!hideHost}
         />
       </Pressable>
       {menuOpen ? (
@@ -426,11 +432,13 @@ function MetaRow({
   runtime,
   projectName,
   showProject,
+  showHost,
 }: {
   workspace: Workspace;
   runtime: WorkspaceRuntime;
   projectName: string;
   showProject: boolean;
+  showHost: boolean;
 }) {
   const { theme, palette, pointer, preferences, multiHost, localHostId, hosts } = useSidebar();
   const { rowItems, checks: checksDisplay } = preferences.values;
@@ -460,7 +468,7 @@ function MetaRow({
         </>
       ),
     });
-  if (rowItems.host && multiHost && workspace.hostId !== localHostId) {
+  if (rowItems.host && showHost && multiHost && workspace.hostId !== localHostId) {
     const host = hosts.find((entry) => entry.serverId === workspace.hostId);
     const color = identityColor(workspace.hostId, palette.dark).text;
     items.push({

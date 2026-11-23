@@ -10,6 +10,11 @@ A [Paseo](https://paseo.sh) sidebar view for people who run Paseo on more than o
 - Fold or unfold every host, project and status group with one button
 - Everything the built-in list shows: pinned workspaces, project or status grouping, status indicators, diff stats, pull requests, checks, services and labels, with the same display menu
 
+<p>
+  <img src="assets/screenshot-project.png" alt="Project grouping with host headings" width="300">
+  <img src="assets/screenshot-status.png" alt="Status grouping with host headings" width="300">
+</p>
+
 See [OVERVIEW.md](OVERVIEW.md) for the full description, the data the plugin reads, and its limits.
 
 ## Requirements

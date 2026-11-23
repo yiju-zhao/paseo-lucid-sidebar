@@ -10,6 +10,11 @@
 - 一个按钮即可折叠或展开所有 host、项目和状态组
 - 内置列表的全部内容：置顶工作区、按项目或状态分组、状态指示、改动行数、pull request、检查、服务和标签，以及相同的显示菜单
 
+<p>
+  <img src="assets/screenshot-project.png" alt="按项目分组，带 host 标题" width="300">
+  <img src="assets/screenshot-status.png" alt="按状态分组，带 host 标题" width="300">
+</p>
+
 完整介绍、插件读取的数据和已知限制见 [OVERVIEW.zh-CN.md](OVERVIEW.zh-CN.md)。
 
 ## 环境要求

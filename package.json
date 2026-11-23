@@ -9,7 +9,8 @@
     "index.client.ts",
     "index.client.tsx",
     "client/",
-    "shared/"
+    "shared/",
+    "assets/"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests",

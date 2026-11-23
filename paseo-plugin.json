@@ -8,7 +8,10 @@
       "description": "把每台 host 的项目和工作区放在一起、归在可折叠标题下的工作区侧边栏。"
     }
   },
-  "media": [],
+  "media": [
+    "assets/screenshot-project.png",
+    "assets/screenshot-status.png"
+  ],
   "requirements": {
     "paseo": ">=0.16.1"
   }

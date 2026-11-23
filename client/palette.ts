@@ -7,7 +7,10 @@ import type { PluginTheme } from "@getpaseo/plugin";
  */
 export interface SidebarPalette {
   dark: boolean;
+  /** Sidebar background; `transparent` when the theme is unknown. */
   background: string;
+  /** A solid color behind the rows, for knockouts and fades. */
+  backdrop: string;
   hover: string;
   selected: string;
   /** Pressed and dragged rows. */
@@ -16,6 +19,10 @@ export interface SidebarPalette {
   borderAccent: string;
   dot: { success: string; danger: string; warning: string; running: string };
   merged: string;
+  /** Text on a solid identity fill, such as a project tile or chip. */
+  onIdentity: string;
+  /** The built-in sidebar's chevron color, which ignores the theme. */
+  chevron: string;
 }
 
 interface KnownTheme {
@@ -126,6 +133,7 @@ export function makePalette(theme: PluginTheme): SidebarPalette {
   return {
     dark,
     background: values.background,
+    backdrop: known ? values.background : colors.surface0,
     hover: values.hover,
     selected: values.selected,
     pressed: colors.surface2,
@@ -133,6 +141,8 @@ export function makePalette(theme: PluginTheme): SidebarPalette {
     borderAccent: dark ? "#2f3534" : "#ececf1",
     dot: dark ? DARK_DOTS : LIGHT_DOTS,
     merged: dark ? "#a890d5" : "#7347af",
+    onIdentity: "#ffffff",
+    chevron: "#9ca3af",
   };
 }
 
@@ -150,7 +160,7 @@ const IDENTITY = [
   { base: "#5179b0", darkText: "#7ba1d5", lightText: "#39649e" },
 ] as const;
 
-export function hashKey(key: string): number {
+function hashKey(key: string): number {
   let hash = 0;
   for (const character of key) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   return hash;

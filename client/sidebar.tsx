@@ -1,64 +1,42 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { View } from "react-native";
-import {
-  useHosts,
-  useProjects,
-  useWorkspaces,
-  type PluginSidebarViewProps,
-  type ProjectRef,
-  type WorkspaceRef,
-} from "@getpaseo/plugin/client";
+import { useHosts, type PluginSidebarViewProps } from "@getpaseo/plugin/client";
 import { ScrollView } from "@getpaseo/plugin/client/ui";
-import type { WorkspaceIndicator } from "@getpaseo/plugin";
-import { SidebarContextProvider, type SidebarContextValue } from "./context";
-import { DisplayMenu, type LabelOption, type ProjectOption } from "./display-menu";
+import { makeHostDirectory, SidebarContextProvider, type SidebarContextValue } from "./context";
+import { IconButton } from "./controls";
+import { DisplayMenu } from "./display-menu";
+import { buildPinned, buildProjects, buildStatusGroups, type ListState } from "./layout";
 import { useLocalHostId } from "./local-host";
-import {
-  aggregateIndicator,
-  clusterByHost,
-  compareNames,
-  comparePinned,
-  compareStatusRows,
-  compareWorkspaces,
-  hasFilter,
-  isVisible,
-  labelKey,
-  STATUS_ORDER,
-  type Workspace,
-} from "./model";
+import { hasFilter } from "./model";
 import { makePalette } from "./palette";
-import { usePreferences } from "./preferences";
+import { usePreferences, type Preferences } from "./preferences";
+import { useSidebarData } from "./queries";
+import { needsWorkspaceRuntime } from "./row-items";
 import { RuntimeProvider, useProjectDirectory } from "./runtime";
 import {
   EmptyCard,
-  HostGroup,
+  HostBlocksView,
   PinnedSection,
-  ProjectBlock,
+  ProjectBlocks,
   SectionHeader,
-  StatusGroup,
-  type ProjectBlockData,
+  StatusGroupView,
 } from "./sections";
-import { IconButton } from "./workspace-row";
+import { UiStateProvider, useExpanded, useMenu } from "./ui-state";
 
-/** The registered sidebar view. */
+/**
+ * The registered sidebar view: queries → list model → renderers. Nothing renders until the
+ * stored preferences are read, so nothing can save over them.
+ */
 export function WorkspaceSidebar(view: PluginSidebarViewProps) {
   const preferences = usePreferences();
-  const { rowItems, checks } = preferences.values;
-  const watchWorkspaces = rowItems.changeRequest || rowItems.services || checks !== "none";
+  if (preferences.loading) return null;
   return (
-    <RuntimeProvider watchWorkspaces={watchWorkspaces}>
-      <SidebarContent view={view} preferences={preferences} />
+    <RuntimeProvider watchWorkspaces={needsWorkspaceRuntime(preferences.values)}>
+      <UiStateProvider>
+        <SidebarContent view={view} preferences={preferences} />
+      </UiStateProvider>
     </RuntimeProvider>
   );
-}
-
-function useNow(): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(timer);
-  }, []);
-  return now;
 }
 
 function SidebarContent({
@@ -66,187 +44,21 @@ function SidebarContent({
   preferences,
 }: {
   view: PluginSidebarViewProps;
-  preferences: ReturnType<typeof usePreferences>;
+  preferences: Preferences;
 }) {
   const values = preferences.values;
-  const hosts = useHosts();
   const directory = useProjectDirectory();
   const localHostId = useLocalHostId();
-  const now = useNow();
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const [renaming, setRenaming] = useState<string | null>(null);
-  const [expanded, setExpandedSet] = useState<ReadonlySet<string>>(() => new Set());
-  const setExpanded = useCallback((key: string, on: boolean) => {
-    setExpandedSet((current) => {
-      const next = new Set(current);
-      if (on) next.add(key);
-      else next.delete(key);
-      return next;
-    });
-  }, []);
-
-  const viewKeyOf = useCallback(
-    (workspace: Workspace) => directory.viewKey(workspace.hostId, workspace.projectId),
-    [directory],
-  );
-  const visible = useCallback(
-    (workspace: Workspace) => isVisible(workspace, values, viewKeyOf(workspace)),
-    [values, viewKeyOf],
-  );
-  const listed = useCallback(
-    (workspace: Workspace) => !workspace.pinnedAt && visible(workspace),
-    [visible],
-  );
-
-  // Rows.
-  const pinned = useWorkspaces({
-    where: (workspace) => !!workspace.pinnedAt && visible(workspace),
-    orderBy: comparePinned,
-  });
-  const doneRefs = useWorkspaces({
-    where: (workspace) => listed(workspace) && workspace.indicator === "done",
-  });
-  const doneKeys = useMemo(() => new Set(doneRefs.map((reference) => reference.key)), [doneRefs]);
-  const hostLabel = useCallback(
-    (hostId: string) => hosts.find((host) => host.serverId === hostId)?.label ?? hostId,
-    [hosts],
-  );
-  const hostGroups = useWorkspaces({ where: visible, groupBy: (workspace) => workspace.hostId });
-  const multiHost = hostGroups.length >= 2;
-
-  // Keeping hosts together gives each host its own block of a project; otherwise a project's
-  // blocks merge across hosts, like the built-in list.
-  const cluster = values.clusterByHost;
-  const blockKeyOf = useCallback(
-    (hostId: string, viewKey: string) => (cluster ? JSON.stringify([hostId, viewKey]) : viewKey),
-    [cluster],
-  );
-  const blockOf = useCallback(
-    (workspace: Workspace) => blockKeyOf(workspace.hostId, viewKeyOf(workspace)),
-    [blockKeyOf, viewKeyOf],
-  );
-  const byProject = useWorkspaces({
-    where: listed,
-    orderBy: compareWorkspaces(values.sort),
-    groupBy: blockOf,
-  });
-  const projectStatus = useWorkspaces({
-    where: listed,
-    groupBy: (workspace) => JSON.stringify([blockOf(workspace), workspace.indicator]),
-  });
-  // Projects that ever had workspaces, and those with a workspace the background filter keeps.
-  const anyWorkspace = useWorkspaces({ groupBy: blockOf });
-  const keptWorkspace = useWorkspaces({
-    where: (workspace) => values.showBackground || !workspace.background,
-    groupBy: blockOf,
-  });
-  const projects = useProjects({
-    where: (project) =>
-      values.hostFilter.length === 0 || values.hostFilter.includes(project.hostId),
-    orderBy: (a, b) =>
-      compareNames(a.displayName, b.displayName) ||
-      directory.viewKey(a.hostId, a.ref.id).localeCompare(directory.viewKey(b.hostId, b.ref.id)),
-  });
-
-  const projectOptions = useMemo<ProjectOption[]>(() => {
-    const seen = new Map<string, ProjectRef>();
-    for (const reference of projects) {
-      const viewKey = directory.viewKey(reference.hostId, reference.id);
-      if (!seen.has(viewKey)) seen.set(viewKey, reference);
-    }
-    return [...seen].map(([viewKey, reference]) => ({ viewKey, reference }));
-  }, [projects, directory]);
-
-  const blocks = useMemo<ProjectBlockData[]>(() => {
-    const rows = new Map(byProject.map((group) => [group.key, group.items]));
-    const ever = new Set(anyWorkspace.map((group) => group.key));
-    const kept = new Set(keptWorkspace.map((group) => group.key));
-    const statuses = new Map<string, WorkspaceIndicator[]>();
-    for (const group of projectStatus) {
-      const [key, indicator] = JSON.parse(group.key) as [string, WorkspaceIndicator];
-      statuses.set(key, [...(statuses.get(key) ?? []), indicator]);
-    }
-    const refsByKey = new Map<string, { viewKey: string; refs: ProjectRef[] }>();
-    for (const reference of projects) {
-      const viewKey = directory.viewKey(reference.hostId, reference.id);
-      const key = blockKeyOf(reference.hostId, viewKey);
-      const entry = refsByKey.get(key) ?? { viewKey, refs: [] };
-      entry.refs.push(reference);
-      refsByKey.set(key, entry);
-    }
-    const result: ProjectBlockData[] = [];
-    for (const [key, { viewKey, refs }] of refsByKey) {
-      if (values.projectFilter.length > 0 && !values.projectFilter.includes(viewKey)) continue;
-      const items: readonly WorkspaceRef[] = rows.get(key) ?? [];
-      const empty = !ever.has(key);
-      // Every workspace hidden by the background filter: the project goes too.
-      if (!empty && !kept.has(key)) continue;
-      // With a label filter, only projects with matching workspaces stay.
-      if (values.labelFilter.length > 0 && items.length === 0) continue;
-      result.push({
-        key,
-        viewKey,
-        hostId: refs[0].hostId,
-        projects: refs,
-        items,
-        empty,
-        aggregate: aggregateIndicator(statuses.get(key) ?? []),
-      });
-    }
-    // Projects arrive sorted by name; keep that order inside each host.
-    return cluster ? clusterByHost(result, localHostId, hostLabel) : result;
-  }, [
-    byProject,
-    anyWorkspace,
-    keptWorkspace,
-    projectStatus,
-    projects,
-    directory,
-    values,
-    blockKeyOf,
-    cluster,
-    localHostId,
-    hostLabel,
-  ]);
-  const blockHosts = new Set(blocks.map((block) => block.hostId)).size;
-  const headBlocks = cluster && blockHosts > 1;
-  const blockHostOrder = [...new Set(blocks.map((block) => block.hostId))];
-
-  const statusGroups = useWorkspaces({
-    where: listed,
-    orderBy: compareStatusRows(
-      (workspace) =>
-        directory.info(workspace.hostId, workspace.projectId)?.customName ??
-        workspace.projectDisplayName,
-    ),
-    groupBy: (workspace) => ({
-      key: workspace.indicator,
-      title: workspace.indicatorLabel ?? undefined,
-    }),
-  });
-  const orderedStatusGroups = useMemo(
-    () =>
-      [...statusGroups].sort(
-        (a, b) =>
-          STATUS_ORDER.indexOf(a.key as WorkspaceIndicator) -
-          STATUS_ORDER.indexOf(b.key as WorkspaceIndicator),
-      ),
-    [statusGroups],
-  );
-
-  const labelGroups = useWorkspaces({
-    groupBy: (workspace) =>
-      workspace.labels.map((label) => ({ key: labelKey(label), title: label })),
-  });
-  const labels = useMemo<LabelOption[]>(
-    () =>
-      labelGroups
-        .map((group) => ({ key: group.key, title: group.title ?? group.key }))
-        .sort((a, b) => compareNames(a.title, b.title)),
-    [labelGroups],
-  );
+  const hostList = useHosts();
+  const data = useSidebarData(values, directory);
+  const expanded = useExpanded();
+  const display = useMenu("display");
 
   const palette = useMemo(() => makePalette(view.theme), [view.theme]);
+  const hosts = useMemo(
+    () => makeHostDirectory(hostList, localHostId, palette.dark, data.multiHost),
+    [hostList, localHostId, palette.dark, data.multiHost],
+  );
   const pointer = view.layout.platform === "web" && !view.layout.compact;
   const context = useMemo<SidebarContextValue>(
     () => ({
@@ -258,36 +70,42 @@ function SidebarContent({
       preferences,
       directory,
       hosts,
-      multiHost,
-      localHostId,
-      now,
-      openMenu,
-      setOpenMenu,
-      renaming,
-      setRenaming,
     }),
-    [
-      view,
-      palette,
-      pointer,
-      preferences,
-      directory,
-      hosts,
-      multiHost,
-      localHostId,
-      now,
-      openMenu,
-      renaming,
-    ],
+    [view, palette, pointer, preferences, directory, hosts],
+  );
+
+  const activeKey = view.active.workspace?.key ?? null;
+  const state = useMemo<ListState>(
+    () => ({
+      groupHosts: values.clusterByHost,
+      compareHosts: hosts.compare,
+      collapsed: new Set(values.collapsed),
+      expanded,
+      activeKey,
+    }),
+    [values.clusterByHost, values.collapsed, hosts, expanded, activeKey],
+  );
+  const projectMode = values.grouping === "project";
+  const pinned = useMemo(() => buildPinned(data.pinned, state), [data.pinned, state]);
+  const projects = useMemo(
+    () =>
+      buildProjects(data.projects, data.facts, state, {
+        projects: values.projectFilter,
+        labels: values.labelFilter.length > 0,
+      }),
+    [data.projects, data.facts, state, values.projectFilter, values.labelFilter],
+  );
+  const statuses = useMemo(
+    () => buildStatusGroups(data.statusGroups, state),
+    [data.statusGroups, state],
   );
 
   const filtered = hasFilter(values);
+  const listEmpty = projectMode
+    ? projects.blocks.length === 0 && !projects.hosts?.length
+    : statuses.length === 0;
   const clearFilters = () =>
     preferences.update({ hostFilter: [], projectFilter: [], labelFilter: [] });
-  const projectMode = values.grouping === "project";
-  const listEmpty = projectMode ? blocks.length === 0 : orderedStatusGroups.length === 0;
-  const showHeader = !projectMode || blocks.length > 0 || filtered;
-  const displayOpen = openMenu === "display";
 
   return (
     <SidebarContextProvider value={context}>
@@ -297,15 +115,16 @@ function SidebarContent({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <PinnedSection items={pinned} expanded={expanded} setExpanded={setExpanded} />
-        {showHeader ? (
+        <PinnedSection list={pinned} />
+        {!projectMode || !listEmpty || filtered ? (
           <SectionHeader
             title="Workspaces"
             actions={
               <IconButton
                 icon="Settings2"
                 label="Display preferences"
-                onPress={() => setOpenMenu(displayOpen ? null : "display")}
+                onPress={display.toggle}
+                active={display.open}
                 size={28}
                 iconSize={14}
                 hoverFill={palette.hover}
@@ -313,60 +132,16 @@ function SidebarContent({
             }
           />
         ) : null}
-        {displayOpen ? <DisplayMenu projects={projectOptions} labels={labels} /> : null}
-        {projectMode
-          ? headBlocks
-            ? blockHostOrder.map((hostId) => {
-                const own = blocks.filter((block) => block.hostId === hostId);
-                const last = own[own.length - 1];
-                // An open, non-empty last project pads its bottom; keep the line off that space.
-                const lastPadded =
-                  !values.collapsed.includes(`project:${last.key}`) &&
-                  (last.items.length > 0 || last.empty);
-                return (
-                  <HostGroup
-                    key={hostId}
-                    hostId={hostId}
-                    label={hostLabel(hostId)}
-                    guideX={7}
-                    section
-                    collapseKey={`host:${hostId}`}
-                    count={own.length}
-                    bottomGap={lastPadded ? 14 : 6}
-                  >
-                    {own.map((block) => (
-                      <ProjectBlock
-                        key={block.key}
-                        hideHost
-                        block={block}
-                        doneKeys={doneKeys}
-                        expanded={expanded}
-                        setExpanded={setExpanded}
-                      />
-                    ))}
-                  </HostGroup>
-                );
-              })
-            : blocks.map((block) => (
-                <ProjectBlock
-                  key={block.key}
-                  block={block}
-                  doneKeys={doneKeys}
-                  expanded={expanded}
-                  setExpanded={setExpanded}
-                />
-              ))
-          : orderedStatusGroups.map((group) => (
-              <StatusGroup
-                key={group.key}
-                indicator={group.key as WorkspaceIndicator}
-                title={group.title}
-                items={group.items}
-                doneKeys={doneKeys}
-                expanded={expanded}
-                setExpanded={setExpanded}
-              />
-            ))}
+        {display.open ? <DisplayMenu data={data} /> : null}
+        {projectMode ? (
+          projects.hosts ? (
+            projects.hosts.map((host) => <HostBlocksView key={host.hostId} host={host} />)
+          ) : (
+            <ProjectBlocks blocks={projects.blocks} />
+          )
+        ) : (
+          statuses.map((section) => <StatusGroupView key={section.indicator} section={section} />)
+        )}
         {listEmpty && filtered ? (
           <EmptyCard
             title="No workspaces match"
@@ -374,7 +149,7 @@ function SidebarContent({
             action={{ label: "Clear filters", onPress: clearFilters }}
           />
         ) : null}
-        {listEmpty && !filtered && projectMode && projects.length === 0 ? (
+        {listEmpty && !filtered && projectMode && data.projects.length === 0 ? (
           <EmptyCard title="No projects yet" description="Add a project to get started" />
         ) : null}
         <View style={{ height: 1 }} />

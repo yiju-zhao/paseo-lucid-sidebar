@@ -200,21 +200,10 @@ class RuntimeStore {
     }
   }
 
-  setWorkspaces(hostId: string, workspaces: readonly RawWorkspace[], replace: boolean) {
-    const prefix = `${hostId}:`;
+  setWorkspaces(hostId: string, workspaces: readonly RawWorkspace[]) {
     let changed = false;
-    const seen = new Set<string>();
-    for (const workspace of workspaces) {
-      const key = entryKey(hostId, workspace.id);
-      seen.add(key);
-      changed = this.put(key, runtimeOf(workspace)) || changed;
-    }
-    if (replace)
-      for (const key of [...this.workspaces.keys()])
-        if (key.startsWith(prefix) && !seen.has(key)) {
-          this.workspaces.delete(key);
-          changed = true;
-        }
+    for (const workspace of workspaces)
+      changed = this.put(entryKey(hostId, workspace.id), runtimeOf(workspace)) || changed;
     if (changed) this.emit();
   }
 
@@ -222,20 +211,29 @@ class RuntimeStore {
     if (this.workspaces.delete(entryKey(hostId, id))) this.emit();
   }
 
-  dropHost(hostId: string) {
-    const prefix = `${hostId}:`;
-    let changed = false;
-    for (const map of [this.projects, this.workspaces] as Map<string, unknown>[])
-      for (const key of [...map.keys()])
-        if (key.startsWith(prefix)) {
-          map.delete(key);
-          changed = true;
-        }
-    if (changed) {
+  /** Forgets a host's projects: it went away. */
+  dropProjects(hostId: string) {
+    if (this.dropPrefix(this.projects, hostId)) {
       this.recountDuplicates();
       this.projectRevision += 1;
       this.emit();
     }
+  }
+
+  /** Forgets a host's workspace runtime: the host went away or nothing reads it any more. */
+  dropWorkspaces(hostId: string) {
+    if (this.dropPrefix(this.workspaces, hostId)) this.emit();
+  }
+
+  private dropPrefix(map: Map<string, unknown>, hostId: string): boolean {
+    const prefix = `${hostId}:`;
+    let changed = false;
+    for (const key of [...map.keys()])
+      if (key.startsWith(prefix)) {
+        map.delete(key);
+        changed = true;
+      }
+    return changed;
   }
 
   private put(key: string, next: WorkspaceRuntime): boolean {
@@ -248,16 +246,18 @@ class RuntimeStore {
 
 const RuntimeContext = createContext<RuntimeStore | null>(null);
 
-function watchHost(store: RuntimeStore, hostId: string, watchWorkspaces: boolean): () => void {
-  const api = getPaseoClient(hostId);
-  let stopped = false;
-  const cleanups: (() => void)[] = [];
-  const report = (what: string) => (error: unknown) => {
-    if (!stopped) console.warn(`[workspace sidebar] ${what} failed on ${hostId}`, error);
+function reporter(hostId: string, stopped: () => boolean) {
+  return (what: string) => (error: unknown) => {
+    if (!stopped()) console.warn(`[workspace sidebar] ${what} failed on ${hostId}`, error);
   };
+}
 
-  let projectTimer: ReturnType<typeof setTimeout> | null = null;
-  const loadProjects = () => {
+/** Project keys and custom names of one host, refreshed when its projects change. */
+function watchProjects(store: RuntimeStore, api: PaseoApi, hostId: string): () => void {
+  let stopped = false;
+  const report = reporter(hostId, () => stopped);
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const load = () => {
     api.projects
       .list()
       .then((result) => {
@@ -266,64 +266,94 @@ function watchHost(store: RuntimeStore, hostId: string, watchWorkspaces: boolean
       })
       .catch(report("Project list"));
   };
-  loadProjects();
-  cleanups.push(
-    api.projects.subscribe(() => {
-      if (projectTimer) clearTimeout(projectTimer);
-      projectTimer = setTimeout(loadProjects, 250);
-    }),
-  );
-  cleanups.push(() => {
-    if (projectTimer) clearTimeout(projectTimer);
+  load();
+  const unsubscribe = api.projects.subscribe(() => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(load, 250);
   });
-
-  if (watchWorkspaces) {
-    api.workspaces
-      .list({ subscribe: {}, page: { limit: 200 } })
-      .then(async (result) => {
-        const subscription = result.subscription;
-        if (stopped) {
-          void subscription.release().catch(report("Workspace subscription release"));
-          return undefined;
-        }
-        cleanups.push(() => {
-          void subscription.release().catch(report("Workspace subscription release"));
-        });
-        store.setWorkspaces(hostId, result.entries, false);
-        cleanups.push(
-          subscription.subscribe({
-            snapshot: (snapshot) => store.setWorkspaces(hostId, snapshot.entries, false),
-            update: (message) => {
-              if (message.type !== "workspace_update") return;
-              const payload = message.payload;
-              if (payload.kind === "upsert")
-                store.setWorkspaces(hostId, [payload.workspace], false);
-              else store.removeWorkspace(hostId, payload.id);
-            },
-          }),
-        );
-        // Later pages fill in hosts with more than one page of workspaces.
-        let cursor = result.pageInfo.hasMore ? result.pageInfo.nextCursor : null;
-        while (cursor && !stopped) {
-          const page = await api.workspaces.list({ page: { limit: 200, cursor } });
-          if (stopped) break;
-          store.setWorkspaces(hostId, page.entries, false);
-          cursor = page.pageInfo.hasMore ? page.pageInfo.nextCursor : null;
-        }
-        return undefined;
-      })
-      .catch(report("Workspace subscription"));
-  }
-
   return () => {
     stopped = true;
-    for (const cleanup of cleanups.splice(0)) cleanup();
-    store.dropHost(hostId);
+    if (timer) clearTimeout(timer);
+    unsubscribe();
+    store.dropProjects(hostId);
   };
 }
 
+/** Pull request, checks and service data of one host's workspaces, through an owned subscription. */
+function watchWorkspaces(store: RuntimeStore, api: PaseoApi, hostId: string): () => void {
+  let stopped = false;
+  const report = reporter(hostId, () => stopped);
+  const cleanups: (() => void)[] = [];
+  api.workspaces
+    .list({ subscribe: {}, page: { limit: 200 } })
+    .then(async (result) => {
+      const subscription = result.subscription;
+      const release = () =>
+        void subscription.release().catch(report("Workspace subscription release"));
+      if (stopped) return release();
+      cleanups.push(release);
+      store.setWorkspaces(hostId, result.entries);
+      cleanups.push(
+        subscription.subscribe({
+          snapshot: (snapshot) => store.setWorkspaces(hostId, snapshot.entries),
+          update: (message) => {
+            if (message.type !== "workspace_update") return;
+            const payload = message.payload;
+            if (payload.kind === "upsert") store.setWorkspaces(hostId, [payload.workspace]);
+            else store.removeWorkspace(hostId, payload.id);
+          },
+        }),
+      );
+      // Later pages fill in hosts with more than one page of workspaces.
+      let cursor = result.pageInfo.hasMore ? result.pageInfo.nextCursor : null;
+      while (cursor && !stopped) {
+        const page = await api.workspaces.list({ page: { limit: 200, cursor } });
+        if (stopped) break;
+        store.setWorkspaces(hostId, page.entries);
+        cursor = page.pageInfo.hasMore ? page.pageInfo.nextCursor : null;
+      }
+      return undefined;
+    })
+    .catch(report("Workspace subscription"));
+  return () => {
+    stopped = true;
+    for (const cleanup of cleanups.splice(0)) cleanup();
+    store.dropWorkspaces(hostId);
+  };
+}
+
+/**
+ * Watches one online host. One per host, so a host coming or going leaves the others' data,
+ * and the view keys derived from it, untouched.
+ */
+function HostWatcher({
+  store,
+  hostId,
+  workspaces,
+}: {
+  store: RuntimeStore;
+  hostId: string;
+  workspaces: boolean;
+}) {
+  const api = useMemo(() => {
+    try {
+      return getPaseoClient(hostId);
+    } catch (error) {
+      // A host without a usable client leaves its rows without PR and project data.
+      console.warn(`[workspace sidebar] Cannot watch ${hostId}`, error);
+      return null;
+    }
+  }, [hostId]);
+  useEffect(() => (api ? watchProjects(store, api, hostId) : undefined), [store, api, hostId]);
+  useEffect(
+    () => (api && workspaces ? watchWorkspaces(store, api, hostId) : undefined),
+    [store, api, hostId, workspaces],
+  );
+  return null;
+}
+
 export function RuntimeProvider({
-  watchWorkspaces,
+  watchWorkspaces: workspaces,
   children,
 }: {
   /** Off when no row item needs pull request, checks or service data. */
@@ -331,30 +361,20 @@ export function RuntimeProvider({
   children: ReactNode;
 }) {
   const store = useMemo(() => new RuntimeStore(), []);
-  const hosts = useHosts();
-  const online = hosts
-    .filter((host) => host.status === "online")
-    .map((host) => host.serverId)
-    .sort()
-    .join("\n");
-
-  useEffect(() => {
-    if (!online) return undefined;
-    const stops = online.split("\n").map((hostId) => {
-      try {
-        return watchHost(store, hostId, watchWorkspaces);
-      } catch (error) {
-        // A host without a usable client leaves its rows without PR and project data.
-        console.warn(`[workspace sidebar] Cannot watch ${hostId}`, error);
-        return () => undefined;
-      }
-    });
-    return () => {
-      for (const stop of stops) stop();
-    };
-  }, [store, online, watchWorkspaces]);
-
-  return <RuntimeContext.Provider value={store}>{children}</RuntimeContext.Provider>;
+  const online = useHosts().filter((host) => host.status === "online");
+  return (
+    <RuntimeContext.Provider value={store}>
+      {online.map((host) => (
+        <HostWatcher
+          key={host.serverId}
+          store={store}
+          hostId={host.serverId}
+          workspaces={workspaces}
+        />
+      ))}
+      {children}
+    </RuntimeContext.Provider>
+  );
 }
 
 function useStore(): RuntimeStore {

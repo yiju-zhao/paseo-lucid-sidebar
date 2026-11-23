@@ -1,8 +1,41 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { PluginHostSummary, PluginSidebarViewProps } from "@getpaseo/plugin/client";
-import type { SidebarPalette } from "./palette";
+import type { CompareHosts } from "./layout";
+import { compareNames } from "./model";
+import { identityColor, type IdentityColor, type SidebarPalette } from "./palette";
 import type { Preferences } from "./preferences";
 import type { ProjectDirectory } from "./runtime";
+
+/** Everything known about connected hosts, in one place. */
+export interface HostDirectory {
+  list: readonly PluginHostSummary[];
+  label(hostId: string): string;
+  /** The daemon on this device. */
+  isLocal(hostId: string): boolean;
+  color(hostId: string): IdentityColor;
+  /** Local host first, then by label. */
+  compare: CompareHosts;
+  /** Visible workspaces span two or more hosts, so rows name their host. */
+  multiple: boolean;
+}
+
+export function makeHostDirectory(
+  list: readonly PluginHostSummary[],
+  localHostId: string | null,
+  dark: boolean,
+  multiple: boolean,
+): HostDirectory {
+  const label = (hostId: string) => list.find((host) => host.serverId === hostId)?.label ?? hostId;
+  const rank = (hostId: string) => (hostId === localHostId ? 0 : 1);
+  return {
+    list,
+    label,
+    isLocal: (hostId) => hostId === localHostId,
+    color: (hostId) => identityColor(hostId, dark),
+    compare: (a, b) => rank(a) - rank(b) || compareNames(label(a), label(b)) || a.localeCompare(b),
+    multiple,
+  };
+}
 
 export interface SidebarContextValue {
   view: PluginSidebarViewProps;
@@ -10,21 +43,11 @@ export interface SidebarContextValue {
   palette: SidebarPalette;
   /** Touch sizing: compact layouts and native platforms. */
   touch: boolean;
-  /** Pointer devices get hover affordances. */
+  /** Pointer devices get hover affordances; always `!touch`. */
   pointer: boolean;
   preferences: Preferences;
   directory: ProjectDirectory;
-  hosts: readonly PluginHostSummary[];
-  /** Whether rows show the host item: true when the visible list spans two or more hosts. */
-  multiHost: boolean;
-  localHostId: string | null;
-  now: number;
-  /** Key of the one open inline menu, such as `workspace:<key>` or `display`. */
-  openMenu: string | null;
-  setOpenMenu: (key: string | null) => void;
-  /** Key of the workspace whose title is being edited. */
-  renaming: string | null;
-  setRenaming: (key: string | null) => void;
+  hosts: HostDirectory;
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);
@@ -58,3 +81,13 @@ export function useHover() {
     [hovered, onHoverIn, onHoverOut],
   );
 }
+
+/** The fill of a pressable sidebar row: pressed wins over hovered. */
+export function fill(palette: SidebarPalette, pressed: boolean, hovered: boolean): string {
+  if (pressed) return palette.pressed;
+  return hovered ? palette.hover : "transparent";
+}
+
+/** Accessibility label for a disclosure control. */
+export const disclosureLabel = (collapsed: boolean, name: string) =>
+  `${collapsed ? "Expand" : "Collapse"} ${name}`;

@@ -1,63 +1,38 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import {
-  openExternalUrl,
-  usePaseo,
-  useProject,
-  useWorkspace,
-  useWorkspaces,
-  type WorkspaceRef,
-} from "@getpaseo/plugin/client";
-import { copyText, Icon, TextInput, useToast } from "@getpaseo/plugin/client/ui";
+import { usePaseo, useProject, useWorkspace, type WorkspaceRef } from "@getpaseo/plugin/client";
+import { TextInput, useToast } from "@getpaseo/plugin/client/ui";
+import { useNow } from "./clock";
 import { useHover, useSidebar } from "./context";
-import { ChecksGlyph, ProjectStatusVisual, StatusIndicator } from "./indicators";
-import { MenuBack, MenuCard, MenuItem, MenuNote, MenuSeparator } from "./menu";
-import {
-  compactNumber,
-  compareNames,
-  displayTitle,
-  formatAge,
-  labelKey,
-  normalizeBranch,
-  type Workspace,
-} from "./model";
-import { identityColor } from "./palette";
-import { useWorkspaceRuntime, type WorkspaceRuntime } from "./runtime";
+import { IconButton } from "./controls";
+import { ProjectStatusVisual, StatusIndicator } from "./indicators";
+import { compactNumber, displayTitle, formatAge, type Workspace } from "./model";
+import { MetaRow } from "./row-items";
+import { ArchiveConfirm, errorText, WorkspaceMenu } from "./row-menu";
+import { useWorkspaceRuntime } from "./runtime";
+import { useMenu, useRenaming } from "./ui-state";
 
 /**
- * `project`: nested under a project header, with a status indicator.
+ * `project`: under a project header, with a status indicator.
  * `pinned`: in the Pinned section, with the project tile and a status badge.
- * `status`: inside a status group, indented, with the project tile.
+ * `status`: inside a status group, with the project tile.
  */
 export type RowVariant = "project" | "pinned" | "status";
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 export function WorkspaceRow({
   reference,
   variant,
-  hideHost,
-  indent,
+  underHost = false,
 }: {
   reference: WorkspaceRef;
   variant: RowVariant;
-  /** Set under a host heading, which already names the host. */
-  hideHost?: boolean;
-  /** Left padding, overriding the variant's. */
-  indent?: number;
+  /** Under a host heading, which names the host and indents the row. */
+  underHost?: boolean;
 }) {
   const workspace = useWorkspace(reference);
   if (!workspace) return null;
   return (
-    <Row
-      workspace={workspace}
-      reference={reference}
-      variant={variant}
-      hideHost={hideHost}
-      indent={indent}
-    />
+    <Row workspace={workspace} reference={reference} variant={variant} underHost={underHost} />
   );
 }
 
@@ -65,58 +40,43 @@ function Row({
   workspace,
   reference,
   variant,
-  hideHost,
-  indent: indentOverride,
+  underHost,
 }: {
   workspace: Workspace;
   reference: WorkspaceRef;
   variant: RowVariant;
-  hideHost?: boolean;
-  indent?: number;
+  underHost: boolean;
 }) {
-  const sidebar = useSidebar();
-  const { view, theme, palette, touch, pointer, preferences, directory, openMenu, setOpenMenu } =
-    sidebar;
-  const values = preferences.values;
+  const { view, theme, palette, touch, pointer, preferences, directory } = useSidebar();
+  const paseo = usePaseo();
+  const toast = useToast();
   const hover = useHover();
   const [pressed, setPressed] = useState(false);
   const runtime = useWorkspaceRuntime(workspace.hostId, workspace.id);
   const projectName =
     useProject(workspace.project, (project) => project.displayName) ?? workspace.projectDisplayName;
   const viewKey = directory.viewKey(workspace.hostId, workspace.projectId);
-  const menuKey = `workspace:${reference.key}`;
-  const confirmKey = `archive:${reference.key}`;
-  const menuOpen = openMenu === menuKey;
-  const confirming = openMenu === confirmKey;
-  const renaming = sidebar.renaming === reference.key;
+  const menu = useMenu(`workspace:${reference.key}`);
+  const confirm = useMenu(`archive:${reference.key}`);
+  const rename = useRenaming(reference.key);
   const selected = view.active.workspace?.key === reference.key;
   const archiving = !!workspace.archivingAt;
   // An open menu keeps the row highlighted and its buttons shown, so ⋯ can close it again.
-  const hovered = pointer && !renaming && (hover.hovered || menuOpen);
-
-  const backdropBase =
-    palette.background === "transparent" ? theme.colors.surface0 : palette.background;
+  const hovered = pointer && !rename.renaming && (hover.hovered || menu.open);
   const backdrop = pressed
     ? palette.pressed
     : selected
       ? palette.selected
       : hovered
         ? palette.hover
-        : backdropBase;
+        : palette.backdrop;
 
   const open = useCallback(() => {
-    setOpenMenu(null);
+    menu.close();
     view.navigation.openWorkspace(reference);
-  }, [view.navigation, reference, setOpenMenu]);
-  const toggleMenu = useCallback(
-    () => setOpenMenu(menuOpen ? null : menuKey),
-    [setOpenMenu, menuOpen, menuKey],
-  );
-
-  const paseo = usePaseo();
-  const toast = useToast();
+  }, [menu, view.navigation, reference]);
   const archive = useCallback(() => {
-    setOpenMenu(null);
+    menu.close();
     paseo.workspaces
       .ref(reference)
       .archive()
@@ -124,39 +84,10 @@ function Row({
         if (result.error) toast.error(result.error);
         return undefined;
       })
-      .catch((error: unknown) => toast.error(message(error)));
-  }, [paseo, reference, setOpenMenu, toast]);
-  // Paseo checks a worktree for uncommitted or unpushed work before archiving it; plugins
-  // cannot read that, so always confirm worktrees.
-  const requestArchive = useCallback(() => {
-    if (workspace.kind === "worktree") setOpenMenu(confirmKey);
-    else archive();
-  }, [workspace.kind, setOpenMenu, confirmKey, archive]);
-
-  const indent = indentOverride ?? (variant === "status" ? 16 : 8);
-  const title = displayTitle(workspace, values.titleSource);
-  const leading =
-    variant === "project" ? (
-      <StatusIndicator
-        indicator={workspace.indicator}
-        kind={workspace.kind}
-        loading={archiving}
-        touch={touch}
-        palette={palette}
-        theme={theme}
-      />
-    ) : (
-      <ProjectStatusVisual
-        viewKey={viewKey}
-        name={projectName}
-        indicator={workspace.indicator === "done" ? null : workspace.indicator}
-        loading={archiving}
-        backdrop={backdrop}
-        touch={touch}
-        palette={palette}
-        theme={theme}
-      />
-    );
+      .catch((error: unknown) => toast.error(errorText(error)));
+  }, [menu, paseo, reference, toast]);
+  // Paseo checks a worktree for unsaved work before archiving; plugins cannot, so ask.
+  const requestArchive = workspace.kind === "worktree" ? confirm.show : archive;
 
   return (
     <View>
@@ -168,7 +99,8 @@ function Row({
           accessibilityState={{ selected, disabled: archiving }}
           disabled={archiving}
           onPress={open}
-          onLongPress={toggleMenu}
+          // The built-in sidebar has no long press on desktop; on touch it opens the menu.
+          onLongPress={touch ? menu.toggle : undefined}
           onPressIn={() => setPressed(true)}
           onPressOut={() => setPressed(false)}
           unstable_pressDelay={touch ? 130 : undefined}
@@ -176,7 +108,7 @@ function Row({
             minHeight: touch ? 44 : 36,
             marginBottom: 2,
             paddingVertical: 8,
-            paddingLeft: indent,
+            paddingLeft: variant === "status" && !underHost ? 16 : 8,
             paddingRight: 12,
             borderRadius: 8,
             gap: 4,
@@ -185,9 +117,26 @@ function Row({
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-            {leading}
-            {renaming ? (
-              <RenameInput reference={reference} initial={workspace.title ?? workspace.name} />
+            {variant === "project" ? (
+              <StatusIndicator
+                indicator={workspace.indicator}
+                kind={workspace.kind}
+                loading={archiving}
+              />
+            ) : (
+              <ProjectStatusVisual
+                viewKey={viewKey}
+                name={projectName}
+                indicator={archiving ? "running" : workspace.indicator}
+                backdrop={backdrop}
+              />
+            )}
+            {rename.renaming ? (
+              <RenameInput
+                reference={reference}
+                initial={workspace.title ?? workspace.name}
+                done={rename.stop}
+              />
             ) : (
               <Text
                 numberOfLines={1}
@@ -200,17 +149,16 @@ function Row({
                   opacity: hovered ? 1 : 0.76,
                 }}
               >
-                {title}
+                {displayTitle(workspace, preferences.values.titleSource)}
               </Text>
             )}
             <Trailing
               workspace={workspace}
-              hovered={hovered}
-              menuOpen={menuOpen}
+              showActions={hovered && !archiving}
+              menuOpen={menu.open}
               backdrop={backdrop}
               onArchive={requestArchive}
-              onMenu={toggleMenu}
-              archiving={archiving}
+              onMenu={menu.toggle}
             />
           </View>
           <MetaRow
@@ -218,46 +166,53 @@ function Row({
             runtime={runtime}
             projectName={projectName}
             viewKey={viewKey}
-            showProject={variant !== "project"}
-            showHost={!hideHost}
+            underProject={variant === "project"}
+            underHost={underHost}
           />
         </Pressable>
       </View>
-      {menuOpen ? (
-        <WorkspaceMenu workspace={workspace} reference={reference} onArchive={requestArchive} />
+      {menu.open ? (
+        <WorkspaceMenu
+          workspace={workspace}
+          reference={reference}
+          onArchive={requestArchive}
+          onRename={rename.start}
+          close={menu.close}
+        />
       ) : null}
-      {confirming ? <ArchiveConfirm name={workspace.name} onConfirm={archive} /> : null}
+      {confirm.open ? (
+        <ArchiveConfirm name={workspace.name} onConfirm={archive} close={confirm.close} />
+      ) : null}
     </View>
   );
 }
 
+/** The right of line 1: the time or diff, under hover buttons on desktop; ⋯ on touch. */
 function Trailing({
   workspace,
-  hovered,
+  showActions,
   menuOpen,
   backdrop,
   onArchive,
   onMenu,
-  archiving,
 }: {
   workspace: Workspace;
-  hovered: boolean;
+  showActions: boolean;
   /** Draws ⋯ pressed in while its menu is open. */
   menuOpen: boolean;
   backdrop: string;
   onArchive: () => void;
   onMenu: () => void;
-  archiving: boolean;
 }) {
-  const { theme, palette, touch, preferences, now } = useSidebar();
-  const trailing = preferences.values.trailing;
+  const { touch } = useSidebar();
+  const more = `More actions for ${workspace.name}`;
 
   if (touch)
     return (
       <View style={{ minHeight: 20, minWidth: 18, alignItems: "flex-end" }}>
         <IconButton
           icon="MoreVertical"
-          label={`More actions for ${workspace.name}`}
+          label={more}
           onPress={onMenu}
           active={menuOpen}
           size={32}
@@ -267,40 +222,10 @@ function Trailing({
       </View>
     );
 
-  let content: ReactNode = null;
-  if (trailing === "timestamp") {
-    const age = formatAge(workspace.statusEnteredAt, now);
-    if (age)
-      content = (
-        <Text style={{ color: palette.extraMuted, fontSize: 12, lineHeight: 20, height: 20 }}>
-          {age}
-        </Text>
-      );
-  } else if (trailing === "diff" && workspace.diffStat) {
-    content = (
-      <View style={{ flexDirection: "row", gap: 4, height: 20, alignItems: "center" }}>
-        <Text style={{ color: theme.colors.statusSuccess, fontSize: 12, lineHeight: 20 }}>
-          {`+${compactNumber(workspace.diffStat.additions)}`}
-        </Text>
-        <Text style={{ color: theme.colors.statusDanger, fontSize: 12, lineHeight: 20 }}>
-          {`-${compactNumber(workspace.diffStat.deletions)}`}
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <View
-      style={{
-        position: "relative",
-        minHeight: 20,
-        alignItems: "flex-end",
-        minWidth: content ? 18 : 0,
-        flexShrink: 0,
-      }}
-    >
-      {content}
-      {hovered && !archiving ? (
+    <View style={{ position: "relative", minHeight: 20, alignItems: "flex-end", flexShrink: 0 }}>
+      <TrailingValue workspace={workspace} />
+      {showActions ? (
         <View style={{ position: "absolute", top: 0, right: 0, height: 20, flexDirection: "row" }}>
           <Scrim color={backdrop} />
           <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: backdrop }}>
@@ -314,7 +239,7 @@ function Trailing({
             />
             <IconButton
               icon="MoreVertical"
-              label={`More actions for ${workspace.name}`}
+              label={more}
               onPress={onMenu}
               active={menuOpen}
               size={18}
@@ -326,6 +251,34 @@ function Trailing({
       ) : null}
     </View>
   );
+}
+
+/** The time since the last status change, or the diff stats. Reads the shared clock. */
+function TrailingValue({ workspace }: { workspace: Workspace }) {
+  const { theme, palette, preferences } = useSidebar();
+  const now = useNow();
+  const trailing = preferences.values.trailing;
+  const text = { fontSize: 12, lineHeight: 20, height: 20 };
+  if (trailing === "timestamp") {
+    const age = formatAge(workspace.statusEnteredAt, now);
+    return age ? (
+      <Text style={{ ...text, color: palette.extraMuted, minWidth: 18 }}>{age}</Text>
+    ) : null;
+  }
+  if (trailing === "diff" && workspace.diffStat)
+    return (
+      <View
+        style={{ flexDirection: "row", gap: 4, height: 20, alignItems: "center", minWidth: 18 }}
+      >
+        <Text style={{ ...text, color: theme.colors.statusSuccess }}>
+          {`+${compactNumber(workspace.diffStat.additions)}`}
+        </Text>
+        <Text style={{ ...text, color: theme.colors.statusDanger }}>
+          {`-${compactNumber(workspace.diffStat.deletions)}`}
+        </Text>
+      </View>
+    );
+  return null;
 }
 
 /** A left-to-right fade into the row backdrop, so hover buttons cover the title end cleanly. */
@@ -340,89 +293,41 @@ function Scrim({ color }: { color: string }) {
   );
 }
 
-export function IconButton({
-  icon,
-  label,
-  onPress,
-  size,
-  iconSize,
-  style,
-  hoverFill,
-  active,
+function RenameInput({
+  reference,
+  initial,
+  done,
 }: {
-  icon: string;
-  label: string;
-  onPress: () => void;
-  size: number;
-  iconSize: number;
-  style?: object;
-  hoverFill?: string;
-  /** Held down, such as the ⋯ of an open menu. */
-  active?: boolean;
+  reference: WorkspaceRef;
+  initial: string;
+  done: () => void;
 }) {
   const { theme } = useSidebar();
-  const hover = useHover();
-  const lit = hover.hovered || !!active;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={active === undefined ? undefined : { expanded: active }}
-      onPress={onPress}
-      onHoverIn={hover.onHoverIn}
-      onHoverOut={hover.onHoverOut}
-      hitSlop={4}
-      style={({ pressed }) => [
-        {
-          width: size,
-          height: size,
-          borderRadius: size >= 24 ? 6 : 4,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: lit || pressed ? (hoverFill ?? theme.colors.surface2) : "transparent",
-        },
-        style,
-      ]}
-    >
-      <Icon
-        name={icon}
-        size={iconSize}
-        color={lit ? theme.colors.foreground : theme.colors.foregroundMuted}
-      />
-    </Pressable>
-  );
-}
-
-function RenameInput({ reference, initial }: { reference: WorkspaceRef; initial: string }) {
-  const { theme, setRenaming } = useSidebar();
   const paseo = usePaseo();
   const toast = useToast();
   const [draft, setDraft] = useState(initial);
-  const [done, setDone] = useState(false);
-  const commit = useCallback(() => {
-    if (done) return;
-    setDone(true);
-    setRenaming(null);
+  // A ref, not state: Escape is followed at once by a blur, which must not save.
+  const finished = useRef(false);
+  const finish = (save: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    done();
     const next = draft.trim();
-    if (next === initial) return;
+    if (!save || next === initial) return;
     paseo.workspaces
       .ref(reference)
       .setTitle(next.length > 0 ? next : null)
-      .catch((error: unknown) => toast.error(message(error)));
-  }, [done, draft, initial, paseo, reference, setRenaming, toast]);
-  const cancel = useCallback(() => {
-    setDone(true);
-    setRenaming(null);
-  }, [setRenaming]);
+      .catch((error: unknown) => toast.error(errorText(error)));
+  };
   return (
     <TextInput
       accessibilityLabel="Workspace title"
       value={draft}
       onChangeText={setDraft}
-      onSubmitEditing={commit}
-      onBlur={commit}
+      onSubmitEditing={() => finish(true)}
+      onBlur={() => finish(true)}
       onKeyPress={(event) => {
-        if (event.nativeEvent.key === "Escape") cancel();
+        if (event.nativeEvent.key === "Escape") finish(false);
       }}
       autoFocus
       selectTextOnFocus
@@ -436,435 +341,5 @@ function RenameInput({ reference, initial }: { reference: WorkspaceRef; initial:
         lineHeight: 20,
       }}
     />
-  );
-}
-
-function Separator() {
-  const { palette } = useSidebar();
-  return <Text style={{ color: palette.extraMuted, fontSize: 12, lineHeight: 16 }}>·</Text>;
-}
-
-function MetaText({
-  children,
-  color,
-  bold,
-}: {
-  children: ReactNode;
-  color: string;
-  bold?: boolean;
-}) {
-  return (
-    <Text
-      numberOfLines={1}
-      style={{
-        color,
-        fontSize: 12,
-        lineHeight: 16,
-        flexShrink: 1,
-        fontWeight: bold ? "600" : "400",
-      }}
-    >
-      {children}
-    </Text>
-  );
-}
-
-/** The second line: branch, project, host, pull request, checks, service and labels. */
-function MetaRow({
-  workspace,
-  runtime,
-  projectName,
-  viewKey,
-  showProject,
-  showHost,
-}: {
-  workspace: Workspace;
-  runtime: WorkspaceRuntime;
-  projectName: string;
-  /** Colors the project tag like the project's tile. */
-  viewKey: string;
-  /** Off under a project header, which already names the project. */
-  showProject: boolean;
-  showHost: boolean;
-}) {
-  const { theme, palette, pointer, preferences, multiHost, localHostId, hosts } = useSidebar();
-  const { rowItems, checks: checksDisplay } = preferences.values;
-  const muted = theme.colors.foregroundMuted;
-  const items: { key: string; node: ReactNode; shrink: number }[] = [];
-
-  // The project leads the line, as a bold chip in its tile's color.
-  if (rowItems.project && showProject)
-    items.push({
-      key: "project",
-      shrink: 1,
-      node: (
-        <View
-          style={{
-            paddingHorizontal: 6,
-            borderRadius: 999,
-            backgroundColor: identityColor(viewKey, palette.dark).fill,
-            flexShrink: 1,
-            minWidth: 0,
-          }}
-        >
-          <Text
-            numberOfLines={1}
-            style={{ color: "#ffffff", fontSize: 12, lineHeight: 16, fontWeight: "600" }}
-          >
-            {projectName}
-          </Text>
-        </View>
-      ),
-    });
-  const branch = normalizeBranch(workspace.branch);
-  if (rowItems.branch && branch)
-    items.push({
-      key: "branch",
-      shrink: 1,
-      node: (
-        <>
-          <Icon name="GitBranch" size={12} color={muted} />
-          <MetaText color={muted}>{branch}</MetaText>
-        </>
-      ),
-    });
-  if (rowItems.host && showHost && multiHost && workspace.hostId !== localHostId) {
-    const host = hosts.find((entry) => entry.serverId === workspace.hostId);
-    const color = identityColor(workspace.hostId, palette.dark).text;
-    items.push({
-      key: "host",
-      shrink: 100,
-      node: (
-        <>
-          <Icon name="Server" size={12} color={color} />
-          <MetaText color={color} bold>
-            {host?.label ?? workspace.hostId}
-          </MetaText>
-        </>
-      ),
-    });
-  }
-  const pr = runtime.pullRequest;
-  if (rowItems.changeRequest && pr)
-    items.push({
-      key: "pr",
-      shrink: 0,
-      node: <PullRequestItem url={pr.url} number={pr.number} state={pr.state} />,
-    });
-  const checks = runtime.checks;
-  if (checksDisplay !== "none" && checks) {
-    const color =
-      checks.state === "passed"
-        ? theme.colors.statusSuccess
-        : checks.state === "failed"
-          ? theme.colors.statusDanger
-          : theme.colors.statusWarning;
-    items.push({
-      key: "checks",
-      shrink: 0,
-      node: (
-        <>
-          <ChecksGlyph summary={checks} color={color} />
-          {checksDisplay === "iconAndText" ? (
-            <MetaText color={color}>{checks.state}</MetaText>
-          ) : null}
-        </>
-      ),
-    });
-  }
-  const service = runtime.service;
-  if (rowItems.services && pointer && service) {
-    const color = service.healthy ? theme.colors.statusSuccess : theme.colors.statusDanger;
-    items.push({
-      key: "service",
-      shrink: 1,
-      node: (
-        <>
-          <Icon name="Globe" size={12} color={color} />
-          <MetaText color={color}>{service.name}</MetaText>
-        </>
-      ),
-    });
-  }
-  if (rowItems.labels && workspace.labels.length > 0)
-    items.push({
-      key: "labels",
-      shrink: 1,
-      node: (
-        <View
-          style={{ flexDirection: "row", gap: 4, minWidth: 0, flexShrink: 1, overflow: "hidden" }}
-        >
-          {workspace.labels.map((label) => {
-            const color = identityColor(labelKey(label), palette.dark);
-            return (
-              <View
-                key={label}
-                style={{ paddingHorizontal: 6, borderRadius: 999, backgroundColor: color.tint }}
-              >
-                <Text numberOfLines={1} style={{ color: color.text, fontSize: 12, lineHeight: 16 }}>
-                  {label}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      ),
-    });
-
-  if (items.length === 0) return null;
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 }}>
-      {items.map((item, index) => (
-        <View
-          key={item.key}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            minWidth: 0,
-            flexShrink: item.shrink,
-          }}
-        >
-          {index > 0 ? <Separator /> : null}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 3,
-              minWidth: 0,
-              flexShrink: 1,
-            }}
-          >
-            {item.node}
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function PullRequestItem({
-  url,
-  number,
-  state,
-}: {
-  url: string;
-  number: number | null;
-  state: "open" | "merged" | "closed";
-}) {
-  const { theme, palette } = useSidebar();
-  const hover = useHover();
-  const toast = useToast();
-  const icon = hover.hovered
-    ? "ExternalLink"
-    : state === "open"
-      ? "GitPullRequest"
-      : state === "merged"
-        ? "GitMerge"
-        : "GitPullRequestClosed";
-  const iconColor = hover.hovered
-    ? theme.colors.foreground
-    : state === "open"
-      ? theme.colors.statusSuccess
-      : state === "merged"
-        ? palette.merged
-        : theme.colors.statusDanger;
-  const suffix = state === "merged" ? " Merged" : state === "closed" ? " Closed" : "";
-  return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={`Open pull request ${number ?? ""}`}
-      hitSlop={4}
-      onHoverIn={hover.onHoverIn}
-      onHoverOut={hover.onHoverOut}
-      onPress={() => {
-        openExternalUrl(url).catch((error: unknown) => toast.error(message(error)));
-      }}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 3,
-        opacity: pressed ? 0.82 : 1,
-      })}
-    >
-      <Icon name={icon} size={12} color={iconColor} />
-      <Text
-        numberOfLines={1}
-        style={{
-          color: hover.hovered ? theme.colors.foreground : theme.colors.foregroundMuted,
-          fontSize: 12,
-          lineHeight: 16,
-        }}
-      >
-        {`${number ?? ""}${suffix}`}
-      </Text>
-    </Pressable>
-  );
-}
-
-function ArchiveConfirm({ name, onConfirm }: { name: string; onConfirm: () => void }) {
-  const { theme, setOpenMenu } = useSidebar();
-  return (
-    <MenuCard>
-      <Text
-        style={{
-          color: theme.colors.foregroundMuted,
-          fontSize: 12,
-          lineHeight: 16,
-          paddingHorizontal: 12,
-          paddingVertical: 4,
-        }}
-      >
-        {`Archive "${name}"? Uncommitted changes and unpushed commits in this worktree may be lost.`}
-      </Text>
-      <MenuItem icon="Archive" label="Archive" destructive onPress={onConfirm} />
-      <MenuItem icon="X" label="Cancel" onPress={() => setOpenMenu(null)} />
-    </MenuCard>
-  );
-}
-
-function WorkspaceMenu({
-  workspace,
-  reference,
-  onArchive,
-}: {
-  workspace: Workspace;
-  reference: WorkspaceRef;
-  onArchive: () => void;
-}) {
-  const { setOpenMenu, setRenaming } = useSidebar();
-  const paseo = usePaseo();
-  const toast = useToast();
-  const [page, setPage] = useState<"root" | "labels">("root");
-  const [error, setError] = useState<string | null>(null);
-  const close = useCallback(() => setOpenMenu(null), [setOpenMenu]);
-  const branch = normalizeBranch(workspace.branch);
-
-  const copy = useCallback(
-    (text: string, what: string) => {
-      close();
-      copyText(text)
-        .then(() => toast.show(`Copied ${what}`))
-        .catch((failure: unknown) => toast.error(message(failure)));
-    },
-    [close, toast],
-  );
-  const togglePin = useCallback(() => {
-    paseo.workspaces
-      .ref(reference)
-      .setPinned(!workspace.pinnedAt)
-      .then(close)
-      .catch((failure: unknown) => setError(message(failure)));
-  }, [paseo, reference, workspace.pinnedAt, close]);
-
-  if (page === "labels")
-    return (
-      <MenuCard>
-        <MenuBack title="Labels" onPress={() => setPage("root")} />
-        <MenuSeparator />
-        <LabelPicker workspace={workspace} reference={reference} />
-      </MenuCard>
-    );
-
-  return (
-    <MenuCard>
-      <MenuItem icon="Copy" label="Copy path" onPress={() => copy(workspace.directory, "path")} />
-      {workspace.projectKind === "git" && branch ? (
-        <MenuItem
-          icon="Copy"
-          label="Copy branch name"
-          onPress={() => copy(branch, "branch name")}
-        />
-      ) : null}
-      <MenuItem
-        icon="Pencil"
-        label="Rename workspace"
-        onPress={() => {
-          close();
-          setRenaming(reference.key);
-        }}
-      />
-      <MenuItem
-        icon={workspace.pinnedAt ? "PinOff" : "Pin"}
-        label={workspace.pinnedAt ? "Unpin" : "Pin to top"}
-        onPress={togglePin}
-      />
-      <MenuItem icon="Tag" label="Labels" submenu onPress={() => setPage("labels")} />
-      <MenuSeparator />
-      <MenuItem icon="Archive" label="Archive" onPress={onArchive} />
-      {error ? <MenuNote text={error} /> : null}
-    </MenuCard>
-  );
-}
-
-function LabelPicker({ workspace, reference }: { workspace: Workspace; reference: WorkspaceRef }) {
-  const { theme, palette, touch } = useSidebar();
-  const paseo = usePaseo();
-  const [draft, setDraft] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const groups = useWorkspaces({
-    hosts: [workspace.hostId],
-    groupBy: (item) => item.labels.map((label) => ({ key: labelKey(label), title: label })),
-  });
-  const labels = useMemo(
-    () => groups.map((group) => group.title ?? group.key).sort(compareNames),
-    [groups],
-  );
-  const assigned = new Set(workspace.labels.map(labelKey));
-  const setLabel = (name: string, on: boolean) => {
-    setError(null);
-    paseo.workspaces
-      .ref(reference)
-      .setLabel(name, { assigned: on })
-      .catch((failure: unknown) => setError(message(failure)));
-  };
-  const create = () => {
-    const name = draft.trim();
-    if (!name) return;
-    setDraft("");
-    setLabel(name, true);
-  };
-  return (
-    <>
-      {labels.map((label) => (
-        <MenuItem
-          key={label}
-          label={label}
-          checked={assigned.has(labelKey(label))}
-          leading={
-            <View
-              style={{
-                width: 8,
-                height: 8,
-                marginHorizontal: 3,
-                borderRadius: 4,
-                backgroundColor: identityColor(labelKey(label), palette.dark).fill,
-              }}
-            />
-          }
-          onPress={() => setLabel(label, !assigned.has(labelKey(label)))}
-        />
-      ))}
-      <View style={{ paddingHorizontal: 12, paddingVertical: 4 }}>
-        <TextInput
-          accessibilityLabel="New label"
-          placeholder="New label…"
-          placeholderTextColor={theme.colors.foregroundMuted}
-          value={draft}
-          onChangeText={setDraft}
-          onSubmitEditing={create}
-          style={{
-            height: touch ? 36 : 28,
-            paddingHorizontal: 8,
-            borderRadius: 6,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            color: theme.colors.foreground,
-            fontSize: 14,
-          }}
-        />
-      </View>
-      {error ? <MenuNote text={error} /> : null}
-    </>
   );
 }

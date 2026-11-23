@@ -1,277 +1,254 @@
 import { useState } from "react";
 import { View } from "react-native";
-import { useProject, type ProjectRef } from "@getpaseo/plugin/client";
-import type { ChecksDisplay, RowItem, SidebarPreferences } from "../shared/preferences";
+import { useProject } from "@getpaseo/plugin/client";
+import {
+  CHECKS_DISPLAY,
+  GROUPINGS,
+  SORTS,
+  TITLE_SOURCES,
+  type ChecksDisplay,
+  type Grouping,
+  type SidebarPreferences,
+  type Sort,
+  type TitleSource,
+} from "../shared/preferences";
 import { useSidebar } from "./context";
+import { MenuBack, MenuCard, MenuDot, MenuItem, MenuNote, MenuSeparator } from "./controls";
 import { ProjectTile } from "./indicators";
-import { MenuBack, MenuCard, MenuItem, MenuNote, MenuSeparator } from "./menu";
 import { toggled } from "./model";
 import { identityColor } from "./palette";
+import type { SidebarData } from "./queries";
+import { ROW_ITEM_TOGGLES } from "./row-items";
+import { useCloseMenu } from "./ui-state";
+
+/** The display preferences menu under the Workspaces header, mirroring the built-in one. */
 
 type Page =
   "root" | "grouping" | "sort" | "title" | "show" | "checks" | "host" | "project" | "labels";
 
-export interface ProjectOption {
-  viewKey: string;
-  reference: ProjectRef;
-}
+type FilterField = "hostFilter" | "projectFilter" | "labelFilter";
 
-export interface LabelOption {
-  key: string;
-  title: string;
-}
-
-const SORT_LABEL = { created: "Created", lastPrompt: "Last prompt" } as const;
-const CHECKS_LABEL: Record<ChecksDisplay, string> = {
-  iconAndText: "Icon and text",
-  icon: "Icon only",
-  none: "Hidden",
+const GROUPING: Record<Grouping, { label: string; icon: string }> = {
+  project: { label: "Project", icon: "Folder" },
+  status: { label: "Status", icon: "CircleDashed" },
 };
-const ROW_ITEMS: { item: RowItem; label: string; icon: string }[] = [
-  { item: "branch", label: "Branch", icon: "GitBranch" },
-  { item: "project", label: "Project", icon: "Folder" },
-  { item: "host", label: "Host", icon: "Server" },
-  { item: "changeRequest", label: "Pull request", icon: "GitPullRequest" },
-  { item: "services", label: "Services", icon: "Globe" },
-  { item: "labels", label: "Labels", icon: "Tag" },
-];
+const SORT: Record<Sort, string> = { created: "Created", lastPrompt: "Last prompt" };
+const TITLE: Record<TitleSource, { label: string; icon: string }> = {
+  title: { label: "Title", icon: "Type" },
+  branch: { label: "Branch name", icon: "GitBranch" },
+};
+const CHECKS: Record<ChecksDisplay, { label: string; icon: string }> = {
+  iconAndText: { label: "Icon and text", icon: "Captions" },
+  icon: { label: "Icon only", icon: "CircleCheck" },
+  none: { label: "Hidden", icon: "EyeOff" },
+};
 
-export function DisplayMenu({
-  projects,
-  labels,
-}: {
-  projects: readonly ProjectOption[];
-  labels: readonly LabelOption[];
-}) {
-  const { preferences, hosts, setOpenMenu, theme } = useSidebar();
+/** A filter's current value: "All", the one selected name, or a count. */
+function filterValue(selected: readonly string[], name?: (id: string) => string): string {
+  if (selected.length === 0) return "All";
+  return selected.length === 1 && name ? name(selected[0]) : `${selected.length}`;
+}
+
+export function DisplayMenu({ data }: { data: Pick<SidebarData, "labels" | "projectOptions"> }) {
+  const { preferences, hosts, theme, palette } = useSidebar();
+  const close = useCloseMenu();
   const values = preferences.values;
   const [page, setPage] = useState<Page>("root");
-  const set = (patch: Partial<SidebarPreferences>, close = false) => {
+  const set = (patch: Partial<SidebarPreferences>, done = false) => {
     preferences.update(patch);
-    if (close) setOpenMenu(null);
+    if (done) close();
   };
+  const toggleIn = (field: FilterField, id: string) =>
+    preferences.update((current) => ({ [field]: toggled(current[field], id) }));
   const back = (title: string, to: Page = "root") => (
-    <>
-      <MenuBack title={title} onPress={() => setPage(to)} />
-      <MenuSeparator />
-    </>
+    <MenuBack title={title} onPress={() => setPage(to)} />
   );
 
-  if (page === "grouping")
-    return (
-      <MenuCard>
-        {back("Grouping")}
-        <MenuItem
-          icon="Folder"
-          label="Project"
-          checked={values.grouping === "project"}
-          onPress={() => set({ grouping: "project" }, true)}
-        />
-        <MenuItem
-          icon="CircleDashed"
-          label="Status"
-          checked={values.grouping === "status"}
-          onPress={() => set({ grouping: "status" }, true)}
-        />
-      </MenuCard>
-    );
-
-  if (page === "sort")
-    return (
-      <MenuCard>
-        {back("Sort")}
-        {(["created", "lastPrompt"] as const).map((sort) => (
+  switch (page) {
+    case "grouping":
+      return (
+        <MenuCard>
+          {back("Grouping")}
+          {GROUPINGS.map((grouping) => (
+            <MenuItem
+              key={grouping}
+              {...GROUPING[grouping]}
+              checked={values.grouping === grouping}
+              onPress={() => set({ grouping }, true)}
+            />
+          ))}
+        </MenuCard>
+      );
+    case "sort":
+      return (
+        <MenuCard>
+          {back("Sort")}
+          {SORTS.map((sort) => (
+            <MenuItem
+              key={sort}
+              label={SORT[sort]}
+              checked={values.sort === sort}
+              onPress={() => set({ sort }, true)}
+            />
+          ))}
+        </MenuCard>
+      );
+    case "title":
+      return (
+        <MenuCard>
+          {back("Title")}
+          {TITLE_SOURCES.map((titleSource) => (
+            <MenuItem
+              key={titleSource}
+              {...TITLE[titleSource]}
+              checked={values.titleSource === titleSource}
+              onPress={() => set({ titleSource }, true)}
+            />
+          ))}
+        </MenuCard>
+      );
+    case "checks":
+      return (
+        <MenuCard>
+          {back("Checks", "show")}
+          {CHECKS_DISPLAY.map((checks) => (
+            <MenuItem
+              key={checks}
+              {...CHECKS[checks]}
+              checked={values.checks === checks}
+              onPress={() => set({ checks })}
+            />
+          ))}
+        </MenuCard>
+      );
+    case "show":
+      return (
+        <MenuCard>
+          {back("Show")}
+          {ROW_ITEM_TOGGLES.map(({ key, label, icon }) => (
+            <MenuItem
+              key={key}
+              icon={icon}
+              label={label}
+              checked={values.rowItems[key]}
+              onPress={() =>
+                preferences.update((current) => ({
+                  rowItems: { ...current.rowItems, [key]: !current.rowItems[key] },
+                }))
+              }
+            />
+          ))}
           <MenuItem
-            key={sort}
-            label={SORT_LABEL[sort]}
-            checked={values.sort === sort}
-            onPress={() => set({ sort }, true)}
+            icon="CircleCheck"
+            label="Checks"
+            value={CHECKS[values.checks].label}
+            submenu
+            onPress={() => setPage("checks")}
           />
-        ))}
-      </MenuCard>
-    );
-
-  if (page === "title")
-    return (
-      <MenuCard>
-        {back("Title")}
-        <MenuItem
-          icon="Type"
-          label="Title"
-          checked={values.titleSource === "title"}
-          onPress={() => set({ titleSource: "title" }, true)}
-        />
-        <MenuItem
-          icon="GitBranch"
-          label="Branch name"
-          checked={values.titleSource === "branch"}
-          onPress={() => set({ titleSource: "branch" }, true)}
-        />
-      </MenuCard>
-    );
-
-  if (page === "checks")
-    return (
-      <MenuCard>
-        {back("Checks", "show")}
-        {(
-          [
-            ["iconAndText", "Captions"],
-            ["icon", "CircleCheck"],
-            ["none", "EyeOff"],
-          ] as const
-        ).map(([checks, icon]) => (
+          <MenuSeparator />
+          {/* A radio that can be unticked: picking the current choice clears the slot. */}
           <MenuItem
-            key={checks}
-            icon={icon}
-            label={CHECKS_LABEL[checks]}
-            checked={values.checks === checks}
-            onPress={() => set({ checks })}
+            icon="Diff"
+            label="Diff stats"
+            checked={values.trailing === "diff"}
+            onPress={() => set({ trailing: values.trailing === "diff" ? "none" : "diff" })}
           />
-        ))}
-      </MenuCard>
-    );
-
-  if (page === "show")
-    return (
-      <MenuCard>
-        {back("Show")}
-        {ROW_ITEMS.map(({ item, label, icon }) => (
           <MenuItem
-            key={item}
-            icon={icon}
-            label={label}
-            checked={values.rowItems[item]}
+            icon="Clock"
+            label="Last activity"
+            checked={values.trailing === "timestamp"}
             onPress={() =>
-              preferences.update((current) => ({
-                rowItems: { ...current.rowItems, [item]: !current.rowItems[item] },
-              }))
+              set({ trailing: values.trailing === "timestamp" ? "none" : "timestamp" })
             }
           />
-        ))}
-        <MenuItem
-          icon="CircleCheck"
-          label="Checks"
-          value={CHECKS_LABEL[values.checks]}
-          submenu
-          onPress={() => setPage("checks")}
-        />
-        <MenuSeparator />
-        {/* A radio that can be unticked: picking the current choice clears the slot. */}
-        <MenuItem
-          icon="Diff"
-          label="Diff stats"
-          checked={values.trailing === "diff"}
-          onPress={() => set({ trailing: values.trailing === "diff" ? "none" : "diff" })}
-        />
-        <MenuItem
-          icon="Clock"
-          label="Last activity"
-          checked={values.trailing === "timestamp"}
-          onPress={() => set({ trailing: values.trailing === "timestamp" ? "none" : "timestamp" })}
-        />
-      </MenuCard>
-    );
-
-  if (page === "host")
-    return (
-      <MenuCard>
-        {back("Host")}
-        <MenuItem
-          label="All hosts"
-          checked={values.hostFilter.length === 0}
-          onPress={() => set({ hostFilter: [] })}
-        />
-        {hosts.map((host) => (
+        </MenuCard>
+      );
+    case "host":
+      return (
+        <MenuCard>
+          {back("Host")}
           <MenuItem
-            key={host.serverId}
-            label={host.label}
-            checked={values.hostFilter.includes(host.serverId)}
-            leading={
-              <View
-                style={{
-                  width: 8,
-                  height: 8,
-                  marginHorizontal: 3,
-                  borderRadius: 4,
-                  backgroundColor:
+            label="All hosts"
+            checked={values.hostFilter.length === 0}
+            onPress={() => set({ hostFilter: [] })}
+          />
+          {hosts.list.map((host) => (
+            <MenuItem
+              key={host.serverId}
+              label={host.label}
+              checked={values.hostFilter.includes(host.serverId)}
+              leading={
+                <MenuDot
+                  color={
                     host.status === "online"
                       ? theme.colors.statusSuccess
-                      : theme.colors.foregroundMuted,
-                }}
-              />
-            }
-            onPress={() =>
-              preferences.update((current) => ({
-                hostFilter: toggled(current.hostFilter, host.serverId),
-              }))
-            }
+                      : theme.colors.foregroundMuted
+                  }
+                />
+              }
+              onPress={() => toggleIn("hostFilter", host.serverId)}
+            />
+          ))}
+        </MenuCard>
+      );
+    case "project":
+      return (
+        <MenuCard>
+          {back("Project")}
+          <MenuItem
+            label="All projects"
+            checked={values.projectFilter.length === 0}
+            onPress={() => set({ projectFilter: [] })}
           />
-        ))}
-      </MenuCard>
-    );
-
-  if (page === "project")
-    return (
-      <MenuCard>
-        {back("Project")}
-        <MenuItem
-          label="All projects"
-          checked={values.projectFilter.length === 0}
-          onPress={() => set({ projectFilter: [] })}
-        />
-        {projects.map((project) => (
-          <ProjectFilterItem
-            key={project.viewKey}
-            option={project}
-            checked={values.projectFilter.includes(project.viewKey)}
-            onPress={() =>
-              preferences.update((current) => ({
-                projectFilter: toggled(current.projectFilter, project.viewKey),
-              }))
-            }
+          {data.projectOptions.map((option) => (
+            <ProjectFilterItem
+              key={option.viewKey}
+              option={option}
+              checked={values.projectFilter.includes(option.viewKey)}
+              onPress={() => toggleIn("projectFilter", option.viewKey)}
+            />
+          ))}
+        </MenuCard>
+      );
+    case "labels":
+      return (
+        <MenuCard>
+          {back("Labels")}
+          {data.labels.map((label) => (
+            <MenuItem
+              key={label.key}
+              label={label.title}
+              checked={values.labelFilter.includes(label.key)}
+              leading={<MenuDot color={identityColor(label.key, palette.dark).fill} />}
+              onPress={() => toggleIn("labelFilter", label.key)}
+            />
+          ))}
+          <MenuItem
+            label="Unlabelled"
+            checked={values.labelFilter.includes("")}
+            leading={<HollowDot />}
+            onPress={() => toggleIn("labelFilter", "")}
           />
-        ))}
-      </MenuCard>
-    );
+          {values.labelFilter.length > 0 ? (
+            <>
+              <MenuSeparator />
+              <MenuItem icon="X" label="Clear filter" onPress={() => set({ labelFilter: [] })} />
+            </>
+          ) : null}
+        </MenuCard>
+      );
+    default:
+      break;
+  }
 
-  if (page === "labels")
-    return (
-      <MenuCard>
-        {back("Labels")}
-        {[...labels, { key: "", title: "Unlabelled" }].map((label) => (
-          <LabelFilterItem
-            key={label.key || "unlabelled"}
-            option={label}
-            checked={values.labelFilter.includes(label.key)}
-            onPress={() =>
-              preferences.update((current) => ({
-                labelFilter: toggled(current.labelFilter, label.key),
-              }))
-            }
-          />
-        ))}
-        {values.labelFilter.length > 0 ? (
-          <>
-            <MenuSeparator />
-            <MenuItem icon="X" label="Clear filter" onPress={() => set({ labelFilter: [] })} />
-          </>
-        ) : null}
-      </MenuCard>
-    );
-
-  const hostValue =
-    values.hostFilter.length === 0
-      ? "All"
-      : values.hostFilter.length === 1
-        ? (hosts.find((host) => host.serverId === values.hostFilter[0])?.label ?? "1")
-        : `${values.hostFilter.length}`;
+  const multipleHosts = hosts.list.length > 1;
+  const multipleProjects = data.projectOptions.length > 1;
   return (
     <MenuCard>
       <MenuItem
-        icon={values.grouping === "project" ? "Folder" : "CircleDashed"}
+        icon={GROUPING[values.grouping].icon}
         label="Grouping"
-        value={values.grouping === "project" ? "Project" : "Status"}
+        value={GROUPING[values.grouping].label}
         submenu
         onPress={() => setPage("grouping")}
       />
@@ -279,7 +256,7 @@ export function DisplayMenu({
         <MenuItem
           icon="ArrowUpDown"
           label="Sort"
-          value={SORT_LABEL[values.sort]}
+          value={SORT[values.sort]}
           submenu
           onPress={() => setPage("sort")}
         />
@@ -287,44 +264,44 @@ export function DisplayMenu({
       <MenuItem
         icon="Type"
         label="Title"
-        value={values.titleSource === "title" ? "Title" : "Branch name"}
+        value={TITLE[values.titleSource].label}
         submenu
         onPress={() => setPage("title")}
       />
       <MenuItem icon="Eye" label="Show" submenu onPress={() => setPage("show")} />
-      {hosts.length > 1 || projects.length > 1 ? <MenuSeparator /> : null}
-      {hosts.length > 1 ? (
+      {multipleHosts || multipleProjects ? <MenuSeparator /> : null}
+      {multipleHosts ? (
         <MenuItem
           icon="Server"
           label="Host"
-          value={hostValue}
+          value={filterValue(values.hostFilter, hosts.label)}
           submenu
           onPress={() => setPage("host")}
         />
       ) : null}
-      {projects.length > 1 ? (
+      {multipleProjects ? (
         <MenuItem
           icon="Folder"
           label="Project"
-          value={values.projectFilter.length === 0 ? "All" : `${values.projectFilter.length}`}
+          value={filterValue(values.projectFilter)}
           submenu
           onPress={() => setPage("project")}
         />
       ) : null}
-      {labels.length > 0 || values.labelFilter.length > 0 ? (
+      {data.labels.length > 0 || values.labelFilter.length > 0 ? (
         <>
           <MenuSeparator />
           <MenuItem
             icon="Tag"
             label="Labels"
-            value={values.labelFilter.length === 0 ? "All" : `${values.labelFilter.length}`}
+            value={filterValue(values.labelFilter)}
             submenu
             onPress={() => setPage("labels")}
           />
         </>
       ) : null}
       <MenuSeparator />
-      {hosts.length > 1 ? (
+      {multipleHosts ? (
         <MenuItem
           icon="Server"
           label="Keep hosts together"
@@ -338,7 +315,7 @@ export function DisplayMenu({
         checked={values.showBackground}
         onPress={() => set({ showBackground: !values.showBackground })}
       />
-      {preferences.error ? <MenuNote text={preferences.error} /> : null}
+      {preferences.error ? <MenuNote text={preferences.error} error /> : null}
     </MenuCard>
   );
 }
@@ -348,54 +325,35 @@ function ProjectFilterItem({
   checked,
   onPress,
 }: {
-  option: ProjectOption;
+  option: SidebarData["projectOptions"][number];
   checked: boolean;
   onPress: () => void;
 }) {
-  const { palette } = useSidebar();
   const name = useProject(option.reference, (project) => project.displayName) ?? option.viewKey;
   return (
     <MenuItem
       label={name}
       checked={checked}
-      leading={<ProjectTile viewKey={option.viewKey} name={name} size={14} palette={palette} />}
+      leading={<ProjectTile viewKey={option.viewKey} name={name} size={14} />}
       onPress={onPress}
     />
   );
 }
 
-function LabelFilterItem({
-  option,
-  checked,
-  onPress,
-}: {
-  option: LabelOption;
-  checked: boolean;
-  onPress: () => void;
-}) {
-  const { palette, theme } = useSidebar();
-  const dot =
-    option.key === "" ? (
+/** The "Unlabelled" marker: a hollow circle. */
+function HollowDot() {
+  const { theme } = useSidebar();
+  return (
+    <View style={{ width: 14, alignItems: "center" }}>
       <View
         style={{
           width: 11,
           height: 11,
-          marginHorizontal: 1.5,
           borderRadius: 6,
           borderWidth: 1.5,
           borderColor: theme.colors.foregroundMuted,
         }}
       />
-    ) : (
-      <View
-        style={{
-          width: 8,
-          height: 8,
-          marginHorizontal: 3,
-          borderRadius: 4,
-          backgroundColor: identityColor(option.key, palette.dark).fill,
-        }}
-      />
-    );
-  return <MenuItem label={option.title} checked={checked} leading={dot} onPress={onPress} />;
+    </View>
+  );
 }

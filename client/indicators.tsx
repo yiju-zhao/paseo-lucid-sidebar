@@ -1,10 +1,14 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { Animated, Easing, Platform, Text, View } from "react-native";
-import type { PluginTheme, WorkspaceIndicator } from "@getpaseo/plugin";
+import type { WorkspaceIndicator } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/ui";
-import { identityColor, type SidebarPalette } from "./palette";
+import { useSidebar } from "./context";
+import { Dot } from "./controls";
 import { projectInitial } from "./model";
+import { identityColor } from "./palette";
 import type { CheckSummary } from "./runtime";
+
+/** Status glyphs and project tiles, drawn like the built-in sidebar. */
 
 /**
  * Every running ring shares one rotation, like the built-in sidebar, so rings stay in phase.
@@ -42,35 +46,30 @@ function useSharedSpin() {
 }
 
 /** 12px ring: track at 30%, a spinning quarter arc, and a solid 6px centre dot. */
-export function StatusRing({ color }: { color: string }) {
+function StatusRing() {
+  const { palette } = useSidebar();
+  const color = palette.dot.running;
   const rotate = useSharedSpin();
+  const ring = {
+    position: "absolute" as const,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
+  };
   return (
     <View style={{ width: 12, height: 12, alignItems: "center", justifyContent: "center" }}>
-      <View
-        style={{
-          position: "absolute",
-          width: 12,
-          height: 12,
-          borderRadius: 6,
-          borderWidth: 1.5,
-          borderColor: color,
-          opacity: 0.3,
-        }}
-      />
+      <View style={{ ...ring, borderColor: color, opacity: 0.3 }} />
       <Animated.View
         style={{
-          position: "absolute",
-          width: 12,
-          height: 12,
-          borderRadius: 6,
-          borderWidth: 1.5,
+          ...ring,
           borderColor: "transparent",
           borderTopColor: color,
           opacity: 0.9,
           transform: [{ rotate }],
         }}
       />
-      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+      <Dot color={color} />
     </View>
   );
 }
@@ -86,13 +85,8 @@ function alertSvg(fill: string, stroke: string): string {
 }
 
 /** Lucide's CircleAlert filled with the warning dot color: an amber disc with a cut-out "!". */
-export function NeedsInputGlyph({
-  palette,
-  theme,
-}: {
-  palette: SidebarPalette;
-  theme: PluginTheme;
-}) {
+function NeedsInputGlyph() {
+  const { palette, theme } = useSidebar();
   const icon = useMemo(
     () => ({ svg: alertSvg(palette.dot.warning, theme.colors.surface0) }),
     [palette.dot.warning, theme.colors.surface0],
@@ -100,11 +94,32 @@ export function NeedsInputGlyph({
   return <Icon icon={icon} size={12} color={palette.dot.warning} />;
 }
 
-function Dot({ color, size = 6, opacity = 1 }: { color: string; size?: number; opacity?: number }) {
+/** The glyph for a status: ring, alert, or a colored dot. `done` is a faint dot. */
+export function IndicatorGlyph({ indicator }: { indicator: WorkspaceIndicator }) {
+  const { palette } = useSidebar();
+  switch (indicator) {
+    case "running":
+      return <StatusRing />;
+    case "needs_input":
+      return <NeedsInputGlyph />;
+    case "attention":
+      return <Dot color={palette.dot.success} />;
+    case "failed":
+      return <Dot color={palette.dot.danger} />;
+    default:
+      return <Dot color={palette.extraMuted} opacity={0.3} />;
+  }
+}
+
+/** The leading 16px (20px on touch) slot every row and header shares. */
+export function LeadingSlot({ children }: { children: ReactNode }) {
+  const { touch } = useSidebar();
   return (
     <View
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity }}
-    />
+      style={{ width: touch ? 20 : 16, height: 20, alignItems: "center", justifyContent: "center" }}
+    >
+      {children}
+    </View>
   );
 }
 
@@ -115,35 +130,32 @@ const KIND_ICON: Record<string, string> = {
   directory: "Folder",
 };
 
-export interface IndicatorProps {
-  indicator: WorkspaceIndicator;
-  /** Workspace kind; drawn for failed workspaces. */
-  kind: string;
-  /** Archiving: shows the running ring. */
-  loading: boolean;
-  touch: boolean;
-  palette: SidebarPalette;
-  theme: PluginTheme;
-}
-
-/** The leading status slot of a workspace row nested under a project. */
+/** The status slot of a row under a project header. A failed row shows its kind and a red dot. */
 export function StatusIndicator({
   indicator,
   kind,
   loading,
-  touch,
-  palette,
-  theme,
-}: IndicatorProps) {
-  const slot = touch ? 20 : 16;
-  let content;
-  if (loading || indicator === "running") content = <StatusRing color={palette.dot.running} />;
-  else if (indicator === "needs_input")
-    content = <NeedsInputGlyph palette={palette} theme={theme} />;
-  else if (indicator === "attention") content = <Dot color={palette.dot.success} />;
-  else if (indicator === "done") content = <Dot color={palette.extraMuted} opacity={0.3} />;
-  else
-    content = (
+}: {
+  indicator: WorkspaceIndicator;
+  kind: string;
+  /** Archiving: shows the running ring. */
+  loading: boolean;
+}) {
+  const { theme, palette, touch } = useSidebar();
+  if (loading)
+    return (
+      <LeadingSlot>
+        <StatusRing />
+      </LeadingSlot>
+    );
+  if (indicator !== "failed")
+    return (
+      <LeadingSlot>
+        <IndicatorGlyph indicator={indicator} />
+      </LeadingSlot>
+    );
+  return (
+    <LeadingSlot>
       <View>
         <Icon
           name={KIND_ICON[kind] ?? "Folder"}
@@ -164,11 +176,7 @@ export function StatusIndicator({
           }}
         />
       </View>
-    );
-  return (
-    <View style={{ width: slot, height: 20, alignItems: "center", justifyContent: "center" }}>
-      {content}
-    </View>
+    </LeadingSlot>
   );
 }
 
@@ -177,26 +185,24 @@ export function ProjectTile({
   viewKey,
   name,
   size,
-  palette,
 }: {
   viewKey: string;
   name: string;
   size: number;
-  palette: SidebarPalette;
 }) {
-  const color = identityColor(viewKey, palette.dark);
+  const { palette } = useSidebar();
   return (
     <View
       style={{
         width: size,
         height: size,
         borderRadius: Math.round(size * 0.25),
-        backgroundColor: color.fill,
+        backgroundColor: identityColor(viewKey, palette.dark).fill,
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      <Text style={{ color: "#ffffff", fontSize: size >= 20 ? 11 : 9, fontWeight: "600" }}>
+      <Text style={{ color: palette.onIdentity, fontSize: size >= 20 ? 11 : 9, fontWeight: "600" }}>
         {projectInitial(name)}
       </Text>
     </View>
@@ -205,69 +211,46 @@ export function ProjectTile({
 
 /**
  * A project tile with a status badge at its corner. The badge shell is filled with the row's
- * backdrop so it knocks out of the tile.
+ * backdrop so it knocks out of the tile. `done` and null show no badge.
  */
 export function ProjectStatusVisual({
   viewKey,
   name,
   indicator,
-  loading,
   backdrop,
-  touch,
-  palette,
-  theme,
 }: {
   viewKey: string;
   name: string;
-  /** Null hides the badge. */
   indicator: WorkspaceIndicator | null;
-  loading: boolean;
   backdrop: string;
-  touch: boolean;
-  palette: SidebarPalette;
-  theme: PluginTheme;
 }) {
-  const size = touch ? 20 : 16;
-  const state = loading ? "running" : indicator;
-  let badge = null;
-  if (state === "running")
-    badge = (
-      <View style={[badgeShell(backdrop, 14), { right: -5, bottom: -5 }]}>
-        <StatusRing color={palette.dot.running} />
-      </View>
-    );
-  else if (state === "needs_input")
-    badge = (
-      <View style={[badgeShell(backdrop, 12), { right: -4, bottom: -4 }]}>
-        <NeedsInputGlyph palette={palette} theme={theme} />
-      </View>
-    );
-  else if (state === "failed" || state === "attention")
-    badge = (
-      <View style={[badgeShell(backdrop, 12), { right: -4, bottom: -4 }]}>
-        <Dot color={state === "failed" ? palette.dot.danger : palette.dot.success} />
-      </View>
-    );
+  const { touch } = useSidebar();
+  const ring = indicator === "running";
+  const shell = ring ? 14 : 12;
   return (
-    <View style={{ width: size, height: 20, alignItems: "center", justifyContent: "center" }}>
+    <LeadingSlot>
       <View>
-        <ProjectTile viewKey={viewKey} name={name} size={size} palette={palette} />
-        {badge}
+        <ProjectTile viewKey={viewKey} name={name} size={touch ? 20 : 16} />
+        {indicator && indicator !== "done" ? (
+          <View
+            style={{
+              position: "absolute",
+              right: ring ? -5 : -4,
+              bottom: ring ? -5 : -4,
+              width: shell,
+              height: shell,
+              borderRadius: shell / 2,
+              backgroundColor: backdrop,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <IndicatorGlyph indicator={indicator} />
+          </View>
+        ) : null}
       </View>
-    </View>
+    </LeadingSlot>
   );
-}
-
-function badgeShell(backdrop: string, size: number) {
-  return {
-    position: "absolute" as const,
-    width: size,
-    height: size,
-    borderRadius: size / 2,
-    backgroundColor: backdrop,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-  };
 }
 
 function checksSvg(summary: CheckSummary, color: string): string {

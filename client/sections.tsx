@@ -1,30 +1,50 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
-import type { WorkspaceIndicator } from "@getpaseo/plugin";
 import { useProject, type ProjectRef, type WorkspaceRef } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/ui";
-import { useHover, useSidebar } from "./context";
-import { NeedsInputGlyph, ProjectStatusVisual, StatusRing } from "./indicators";
-import { clusterByHost, splitVisible, STATUS_LABEL, WORKSPACE_LIMIT, PINNED_LIMIT } from "./model";
-import { identityColor, withAlpha } from "./palette";
-import { IconButton, WorkspaceRow, type RowVariant } from "./workspace-row";
+import { disclosureLabel, fill, useHover, useSidebar } from "./context";
+import { IconButton } from "./controls";
+import { IndicatorGlyph, LeadingSlot, ProjectStatusVisual } from "./indicators";
+import { keys } from "./keys";
+import {
+  HEADER_MARGIN,
+  type HostBlocks,
+  type ProjectBlock,
+  type RowList,
+  type StatusSection,
+} from "./layout";
+import { STATUS_LABEL, toggled } from "./model";
+import { withAlpha } from "./palette";
+import { useToggleExpanded } from "./ui-state";
+import { WorkspaceRow, type RowVariant } from "./workspace-row";
+
+/** Renderers for the list model in client/layout.ts. They draw; they do not decide. */
+
+/** Flips a stored collapse key. */
+function useCollapseToggle(key: string): () => void {
+  const { preferences } = useSidebar();
+  return useCallback(
+    () => preferences.update((values) => ({ collapsed: toggled(values.collapsed, key) })),
+    [preferences, key],
+  );
+}
 
 /** "Pinned" and "Workspaces": a muted 12px title, optionally collapsible, with trailing actions. */
 export function SectionHeader({
   title,
-  collapsed,
-  onToggle,
+  collapseKey,
+  collapsed = false,
   actions,
 }: {
   title: string;
-  /** Undefined for a header that does not collapse. */
+  /** Set for a header that folds its section. */
+  collapseKey?: string;
   collapsed?: boolean;
-  onToggle?: () => void;
   actions?: ReactNode;
 }) {
   const { theme, touch, pointer } = useSidebar();
   const hover = useHover();
-  const showChevron = onToggle && (hover.hovered || !pointer);
+  const toggle = useCollapseToggle(collapseKey ?? "");
   const label = <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>{title}</Text>;
   return (
     <View
@@ -38,12 +58,12 @@ export function SectionHeader({
         gap: 8,
       }}
     >
-      {onToggle ? (
+      {collapseKey ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} ${title}`}
+          accessibilityLabel={disclosureLabel(collapsed, title)}
           accessibilityState={{ expanded: !collapsed }}
-          onPress={onToggle}
+          onPress={toggle}
           onHoverIn={hover.onHoverIn}
           onHoverOut={hover.onHoverOut}
           style={{
@@ -56,7 +76,7 @@ export function SectionHeader({
           }}
         >
           {label}
-          {showChevron ? (
+          {hover.hovered || !pointer ? (
             <Icon
               name={collapsed ? "ChevronRight" : "ChevronDown"}
               size={touch ? 14 : 12}
@@ -72,53 +92,62 @@ export function SectionHeader({
   );
 }
 
-/** A full-width row shared by project headers and status group headers. */
-function GroupHeaderRow({
+/**
+ * A full-width disclosure row: project headers and status group headers. On hover the leading
+ * visual turns into a chevron, and `actions` show (always on touch).
+ */
+function DisclosureRow({
   label,
-  leading,
-  collapsed,
-  onToggle,
-  actions,
-  hover,
   bold,
+  leading,
+  collapseKey,
+  collapsed,
+  actions,
 }: {
   label: string;
-  /** Project headers set this; status group headers keep the regular weight. */
   bold?: boolean;
   leading: ReactNode;
+  collapseKey: string;
   collapsed: boolean;
-  onToggle: () => void;
   actions?: ReactNode;
-  hover: ReturnType<typeof useHover>;
 }) {
-  const { theme, palette, touch } = useSidebar();
-  // Hover is tracked on a wrapping View so the + button does not end it: see useHover.
+  const { theme, palette, touch, pointer } = useSidebar();
+  const hover = useHover();
+  const toggle = useCollapseToggle(collapseKey);
+  const showActions = hover.hovered || !pointer;
+  // Hover is tracked on a wrapping View so the actions do not end it: see useHover.
   return (
     <View onPointerEnter={hover.onPointerEnter} onPointerLeave={hover.onPointerLeave}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} ${label}`}
+        accessibilityLabel={disclosureLabel(collapsed, label)}
         accessibilityState={{ expanded: !collapsed }}
-        onPress={onToggle}
+        onPress={toggle}
         style={({ pressed }) => ({
           minHeight: touch ? 44 : 36,
           paddingVertical: 8,
           paddingHorizontal: 8,
           borderRadius: 8,
-          marginBottom: 4,
+          marginBottom: HEADER_MARGIN,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 8,
-          backgroundColor: pressed
-            ? palette.pressed
-            : hover.hovered
-              ? palette.hover
-              : "transparent",
+          backgroundColor: fill(palette, pressed, hover.hovered),
         })}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-          {leading}
+          {hover.hovered ? (
+            <LeadingSlot>
+              <Icon
+                name={collapsed ? "ChevronRight" : "ChevronDown"}
+                size={14}
+                color={palette.chevron}
+              />
+            </LeadingSlot>
+          ) : (
+            leading
+          )}
           <Text
             numberOfLines={1}
             style={{
@@ -133,7 +162,16 @@ function GroupHeaderRow({
           </Text>
         </View>
         {actions ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginRight: -6 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 2,
+              marginRight: -6,
+              opacity: showActions ? 1 : 0,
+            }}
+            pointerEvents={showActions ? "auto" : "none"}
+          >
             {actions}
           </View>
         ) : null}
@@ -142,36 +180,148 @@ function GroupHeaderRow({
   );
 }
 
-function Chevron({ collapsed }: { collapsed: boolean }) {
-  const { touch } = useSidebar();
+/** Host heading metrics, shared by the heading and the guide line below its icon. */
+const HOST_HEADING = {
+  section: { size: 12, lineHeight: 16, marginTop: 6, marginBottom: 2, paddingVertical: 4 },
+  inline: { size: 11, lineHeight: 14, marginTop: 2, marginBottom: 0, paddingVertical: 2 },
+};
+
+/**
+ * A host heading and what belongs to it. Pressing the heading folds the host. A thin line in
+ * the host's color drops from the host icon down the left of its contents, which are indented
+ * to clear it. `section` is the larger heading above a host's projects.
+ */
+function HostGroup({
+  hostId,
+  guideX,
+  section = false,
+  collapseKey,
+  collapsed,
+  count,
+  guideBottom = 2,
+  children,
+}: {
+  hostId: string;
+  /** Horizontal centre of the host icon, where the guide line runs. */
+  guideX: number;
+  section?: boolean;
+  collapseKey: string;
+  collapsed: boolean;
+  /** Shown while folded, so a folded host still says how much it holds. */
+  count: number;
+  guideBottom?: number;
+  children: ReactNode;
+}) {
+  const { theme, palette, pointer, hosts } = useSidebar();
+  const hover = useHover();
+  const toggle = useCollapseToggle(collapseKey);
+  const metrics = section ? HOST_HEADING.section : HOST_HEADING.inline;
+  const color = hosts.color(hostId).text;
+  const label = hosts.label(hostId);
+  const paddingHorizontal = 4;
+  const iconCentre = metrics.marginTop + metrics.paddingVertical + metrics.lineHeight / 2;
   return (
-    <View
-      style={{ width: touch ? 20 : 16, height: 20, alignItems: "center", justifyContent: "center" }}
-    >
-      <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} size={14} color="#9ca3af" />
+    <View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={disclosureLabel(collapsed, label)}
+        accessibilityState={{ expanded: !collapsed }}
+        onPress={toggle}
+        onHoverIn={hover.onHoverIn}
+        onHoverOut={hover.onHoverOut}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 4,
+          alignSelf: "flex-start",
+          maxWidth: "100%",
+          marginLeft: guideX - paddingHorizontal - metrics.size / 2,
+          marginTop: metrics.marginTop,
+          marginBottom: metrics.marginBottom,
+          paddingHorizontal,
+          paddingVertical: metrics.paddingVertical,
+          borderRadius: 6,
+          opacity: pressed ? 0.7 : 1,
+          backgroundColor: hover.hovered ? palette.hover : "transparent",
+        })}
+      >
+        <Icon
+          name={hosts.isLocal(hostId) ? "Monitor" : "Server"}
+          size={metrics.size}
+          color={color}
+        />
+        <Text
+          numberOfLines={1}
+          style={{
+            flexShrink: 1,
+            color,
+            fontSize: metrics.size,
+            lineHeight: metrics.lineHeight,
+            fontWeight: "700",
+          }}
+        >
+          {label}
+        </Text>
+        {collapsed ? (
+          <Text
+            style={{
+              color: theme.colors.foregroundMuted,
+              fontSize: metrics.size,
+              lineHeight: metrics.lineHeight,
+            }}
+          >
+            {count}
+          </Text>
+        ) : null}
+        {collapsed || hover.hovered || !pointer ? (
+          <Icon
+            name={collapsed ? "ChevronRight" : "ChevronDown"}
+            size={metrics.size}
+            color={color}
+          />
+        ) : null}
+      </Pressable>
+      {collapsed ? null : (
+        <>
+          <View style={{ paddingLeft: guideX + 5 }}>{children}</View>
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: guideX - 0.5,
+              width: 1,
+              top: iconCentre + metrics.size / 2 + 3,
+              bottom: guideBottom,
+              borderRadius: 0.5,
+              backgroundColor: withAlpha(color, 0.45),
+            }}
+          />
+        </>
+      )}
     </View>
   );
 }
 
-export function ShowMoreRow({
-  hiddenCount,
+function ShowMoreRow({
+  listKey,
+  hidden,
   expanded,
-  onToggle,
   indent,
 }: {
-  hiddenCount: number;
+  listKey: string;
+  hidden: number;
   expanded: boolean;
-  onToggle: () => void;
   indent: number;
 }) {
   const { theme, palette, touch } = useSidebar();
   const hover = useHover();
+  const toggleExpanded = useToggleExpanded();
   const color = hover.hovered ? theme.colors.foreground : theme.colors.foregroundMuted;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={expanded ? "Show less" : `Show ${hiddenCount} more`}
-      onPress={onToggle}
+      accessibilityLabel={expanded ? "Show less" : `Show ${hidden} more`}
+      onPress={() => toggleExpanded(listKey)}
       onHoverIn={hover.onHoverIn}
       onHoverOut={hover.onHoverOut}
       style={({ pressed }) => ({
@@ -184,314 +334,73 @@ export function ShowMoreRow({
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        backgroundColor: pressed ? palette.pressed : hover.hovered ? palette.hover : "transparent",
+        backgroundColor: fill(palette, pressed, hover.hovered),
       })}
     >
-      <View style={{ width: touch ? 20 : 16, alignItems: "center" }}>
+      <LeadingSlot>
         <Icon name={expanded ? "ChevronUp" : "ChevronDown"} size={12} color={color} />
-      </View>
+      </LeadingSlot>
       <Text style={{ color, fontSize: 12, lineHeight: 16 }}>
-        {expanded ? "Show less" : `Show more (${hiddenCount})`}
+        {expanded ? "Show less" : `Show more (${hidden})`}
       </Text>
     </Pressable>
   );
 }
 
-/** Rows of one group with the "Show more" rule applied. */
-export function GroupRows({
-  items,
-  variant,
-  limit,
-  doneKeys,
-  expandKey,
-  expanded,
-  setExpanded,
-  hideHost,
-}: {
-  items: readonly WorkspaceRef[];
-  variant: RowVariant;
-  hideHost?: boolean;
-  limit: number;
-  /** Keys of done workspaces; only those hide past the limit. Undefined hides every row. */
-  doneKeys?: ReadonlySet<string>;
-  expandKey: string;
-  expanded: ReadonlySet<string>;
-  setExpanded: (key: string, on: boolean) => void;
-}) {
-  const { view, preferences, localHostId, hosts } = useSidebar();
-  const isExpanded = expanded.has(expandKey);
-  const cluster = preferences.values.clusterByHost;
-  const hostLabel = useCallback(
-    (hostId: string) => hosts.find((host) => host.serverId === hostId)?.label ?? hostId,
-    [hosts],
-  );
-  const ordered = useMemo(
-    () => (cluster ? clusterByHost(items, localHostId, hostLabel) : items),
-    [cluster, items, localHostId, hostLabel],
-  );
-  // Host headings only help when the section mixes hosts.
-  const labelled = cluster && new Set(items.map((item) => item.hostId)).size > 1;
-  const hostKey = (hostId: string) => `${expandKey}|host:${hostId}`;
-  const collapsedKeys = preferences.values.collapsed;
-  const open = labelled
-    ? ordered.filter((item) => !collapsedKeys.includes(hostKey(item.hostId)))
-    : ordered;
-  const { hoisted, shown, hiddenCount } = splitVisible(open, {
-    limit,
-    expanded: isExpanded,
-    isDone: doneKeys ? (item) => doneKeys.has(item.key) : undefined,
-    activeKey: view.active.workspace?.key,
-  });
-  const toggle = useCallback(
-    () => setExpanded(expandKey, !isExpanded),
-    [setExpanded, expandKey, isExpanded],
-  );
-  const indent = variant === "status" ? 16 : 8;
-  const row = (reference: WorkspaceRef) => (
+/** A section's rows: flat, or under host headings; then "Show more" when it hides rows. */
+function RowListView({ list, variant }: { list: RowList<WorkspaceRef>; variant: RowVariant }) {
+  const row = (reference: WorkspaceRef, underHost: boolean) => (
     <WorkspaceRow
       key={reference.key}
       reference={reference}
       variant={variant}
-      hideHost={labelled || hideHost}
-      // A host group already indents status rows.
-      indent={labelled && variant === "status" ? 8 : undefined}
+      underHost={underHost}
     />
   );
-  // Every host keeps its heading, collapsed or not, in the clustered order.
-  const hostOrder = labelled ? [...new Set(ordered.map((item) => item.hostId))] : [];
   return (
     <>
-      {hoisted ? <WorkspaceRow reference={hoisted} variant={variant} /> : null}
-      {labelled
-        ? hostOrder.map((hostId) => (
+      {list.hosts
+        ? list.hosts.map((host) => (
             <HostGroup
-              key={hostId}
-              hostId={hostId}
-              label={hostLabel(hostId)}
+              key={host.hostId}
+              hostId={host.hostId}
               // Under the status icon in status groups, under the section's left edge otherwise.
               guideX={variant === "status" ? 15 : 7}
-              collapseKey={hostKey(hostId)}
-              count={ordered.filter((item) => item.hostId === hostId).length}
+              collapseKey={host.collapseKey}
+              collapsed={host.collapsed}
+              count={host.total}
             >
-              {shown.filter((item) => item.hostId === hostId).map(row)}
+              {host.rows.map((reference) => row(reference, true))}
             </HostGroup>
           ))
-        : shown.map(row)}
-      {hiddenCount > 0 || isExpanded ? (
-        isExpanded && open.length <= limit ? null : (
-          <ShowMoreRow
-            hiddenCount={hiddenCount}
-            expanded={isExpanded}
-            onToggle={toggle}
-            indent={indent}
-          />
-        )
+        : list.rows.map((reference) => row(reference, false))}
+      {list.more ? (
+        <ShowMoreRow
+          listKey={list.key}
+          hidden={list.more.hidden}
+          expanded={list.more.expanded}
+          indent={variant === "status" ? 16 : 8}
+        />
       ) : null}
     </>
   );
 }
 
-/** Whether a collapse key is set, and a toggle that flips it in the stored preferences. */
-export function useCollapsed(key: string) {
+export function PinnedSection({ list }: { list: RowList<WorkspaceRef> }) {
   const { preferences } = useSidebar();
-  const collapsed = preferences.values.collapsed.includes(key);
-  const toggle = useCallback(
-    () =>
-      preferences.update((values) => ({
-        collapsed: values.collapsed.includes(key)
-          ? values.collapsed.filter((entry) => entry !== key)
-          : [...values.collapsed, key],
-      })),
-    [preferences, key],
-  );
-  return { collapsed, toggle };
-}
-
-/**
- * A heading naming the host of what follows, in the host's identity color. Pressing it folds
- * what follows. `section` is the larger heading above a host's projects.
- */
-export function HostHeading({
-  hostId,
-  label,
-  guideX,
-  section,
-  collapseKey,
-  count,
-}: {
-  hostId: string;
-  label: string;
-  /** Horizontal centre of the host icon, where the guide line below it runs. */
-  guideX: number;
-  section?: boolean;
-  collapseKey: string;
-  /** Shown while collapsed, so a folded host still says how much it holds. */
-  count: number;
-}) {
-  const { palette, localHostId, pointer, theme } = useSidebar();
-  const hover = useHover();
-  const { collapsed, toggle } = useCollapsed(collapseKey);
-  const color = identityColor(hostId, palette.dark).text;
-  const size = section ? 12 : 11;
+  if (list.rows.length === 0 && !list.hosts?.length) return null;
+  const collapsed = preferences.values.collapsed.includes(keys.pinned);
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} ${label}`}
-      accessibilityState={{ expanded: !collapsed }}
-      onPress={toggle}
-      onHoverIn={hover.onHoverIn}
-      onHoverOut={hover.onHoverOut}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
-        alignSelf: "flex-start",
-        maxWidth: "100%",
-        marginLeft: guideX - 4 - size / 2,
-        marginTop: section ? 6 : 2,
-        marginBottom: section ? 2 : 0,
-        paddingHorizontal: 4,
-        paddingVertical: section ? 4 : 2,
-        borderRadius: 6,
-        opacity: pressed ? 0.7 : 1,
-        backgroundColor: hover.hovered ? palette.hover : "transparent",
-      })}
-    >
-      <Icon name={hostId === localHostId ? "Monitor" : "Server"} size={size} color={color} />
-      <Text
-        numberOfLines={1}
-        style={{
-          flexShrink: 1,
-          color,
-          fontSize: size,
-          lineHeight: section ? 16 : 14,
-          fontWeight: "700",
-        }}
-      >
-        {label}
-      </Text>
-      {collapsed ? (
-        <Text style={{ color: theme.colors.foregroundMuted, fontSize: size, lineHeight: 14 }}>
-          {count}
-        </Text>
-      ) : null}
-      {collapsed || hover.hovered || !pointer ? (
-        <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} size={size} color={color} />
-      ) : null}
-    </Pressable>
-  );
-}
-
-/** Heading metrics: guide lines start just below the host icon. */
-function guideTop(section: boolean): number {
-  const marginTop = section ? 6 : 2;
-  const paddingVertical = section ? 4 : 2;
-  const lineHeight = section ? 16 : 14;
-  const size = section ? 12 : 11;
-  return marginTop + paddingVertical + lineHeight / 2 + size / 2 + 3;
-}
-
-/**
- * A host heading and what belongs to it. A thin line in the host's color drops from the host
- * icon down the left of its projects or workspaces, which are indented to clear it.
- */
-export function HostGroup({
-  hostId,
-  label,
-  guideX,
-  section,
-  collapseKey,
-  count,
-  bottomGap = 2,
-  children,
-}: {
-  hostId: string;
-  label: string;
-  guideX: number;
-  section?: boolean;
-  collapseKey: string;
-  count: number;
-  /** Space below the last child the line should not reach into. */
-  bottomGap?: number;
-  children: ReactNode;
-}) {
-  const { palette } = useSidebar();
-  const { collapsed } = useCollapsed(collapseKey);
-  const color = identityColor(hostId, palette.dark).text;
-  return (
-    <View>
-      <HostHeading
-        hostId={hostId}
-        label={label}
-        guideX={guideX}
-        section={section}
-        collapseKey={collapseKey}
-        count={count}
-      />
-      {collapsed ? null : (
-        <>
-          <View style={{ paddingLeft: guideX + 5 }}>{children}</View>
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              left: guideX - 0.5,
-              width: 1,
-              top: guideTop(!!section),
-              bottom: bottomGap,
-              borderRadius: 0.5,
-              backgroundColor: withAlpha(color, 0.45),
-            }}
-          />
-        </>
-      )}
+    <View style={{ marginBottom: 4 }}>
+      <SectionHeader title="Pinned" collapseKey={keys.pinned} collapsed={collapsed} />
+      {collapsed ? null : <RowListView list={list} variant="pinned" />}
     </View>
   );
 }
 
-export interface ProjectBlockData {
-  /** Identity of the block: the view key, or host and view key when hosts are kept apart. */
-  key: string;
-  /** Host of the first project ref; the only host when hosts are kept apart. */
-  hostId: string;
-  viewKey: string;
-  /** One ref per host the project lives on; the first names the project. */
-  projects: readonly ProjectRef[];
-  items: readonly WorkspaceRef[];
-  /** The project has no workspaces at all: show the "New workspace" row. */
-  empty: boolean;
-  /** Status of the project's workspaces, for the collapsed badge. */
-  aggregate: WorkspaceIndicator;
-}
-
-export function ProjectBlock({
-  block,
-  doneKeys,
-  expanded,
-  setExpanded,
-  hideHost,
-}: {
-  block: ProjectBlockData;
-  /** Set under a host heading, which already names the host. */
-  hideHost?: boolean;
-  doneKeys: ReadonlySet<string>;
-  expanded: ReadonlySet<string>;
-  setExpanded: (key: string, on: boolean) => void;
-}) {
-  const { view, theme, palette, touch, pointer, preferences } = useSidebar();
-  const hover = useHover();
+function ProjectBlockView({ block }: { block: ProjectBlock<ProjectRef, WorkspaceRef> }) {
+  const { view, palette } = useSidebar();
   const name = useProject(block.projects[0], (project) => project.displayName) ?? "";
-  const collapseKey = `project:${block.key}`;
-  const collapsed = preferences.values.collapsed.includes(collapseKey);
-  const toggle = useCallback(
-    () =>
-      preferences.update((values) => ({
-        collapsed: values.collapsed.includes(collapseKey)
-          ? values.collapsed.filter((key) => key !== collapseKey)
-          : [...values.collapsed, collapseKey],
-      })),
-    [preferences, collapseKey],
-  );
   // New workspaces start on the active workspace's host when the project lives there.
   const activeHost = view.active.workspace?.hostId;
   const target =
@@ -500,62 +409,82 @@ export function ProjectBlock({
     () => view.navigation.openProject(target),
     [view.navigation, target],
   );
-  const showActions = hover.hovered || !pointer;
-
-  const leading = hover.hovered ? (
-    <Chevron collapsed={collapsed} />
-  ) : (
-    <ProjectStatusVisual
-      viewKey={block.viewKey}
-      name={name}
-      indicator={collapsed && block.aggregate !== "done" ? block.aggregate : null}
-      loading={false}
-      backdrop={palette.background === "transparent" ? theme.colors.surface0 : palette.background}
-      touch={touch}
-      palette={palette}
-      theme={theme}
-    />
-  );
-
   return (
-    <View style={{ paddingBottom: !collapsed && (block.items.length > 0 || block.empty) ? 12 : 0 }}>
-      <GroupHeaderRow
+    <View style={{ paddingBottom: block.spacing }}>
+      <DisclosureRow
         label={name}
         bold
-        leading={leading}
-        collapsed={collapsed}
-        onToggle={toggle}
-        hover={hover}
+        collapseKey={block.collapseKey}
+        collapsed={block.collapsed}
+        leading={
+          <ProjectStatusVisual
+            viewKey={block.viewKey}
+            name={name}
+            indicator={block.collapsed ? block.aggregate : null}
+            backdrop={palette.backdrop}
+          />
+        }
         actions={
-          <View
-            style={{ opacity: showActions ? 1 : 0 }}
-            pointerEvents={showActions ? "auto" : "none"}
-          >
-            <IconButton
-              icon="Plus"
-              label={`New workspace in ${name}`}
-              onPress={newWorkspace}
-              size={24}
-              iconSize={15}
-              hoverFill={palette.hover}
-            />
-          </View>
+          <IconButton
+            icon="Plus"
+            label={`New workspace in ${name}`}
+            onPress={newWorkspace}
+            size={24}
+            iconSize={15}
+            hoverFill={palette.hover}
+          />
         }
       />
-      {collapsed ? null : block.empty ? (
+      {block.collapsed ? null : block.empty ? (
         <GhostNewWorkspace onPress={newWorkspace} />
       ) : (
-        <GroupRows
-          items={block.items}
-          hideHost={hideHost}
-          variant="project"
-          limit={WORKSPACE_LIMIT}
-          doneKeys={doneKeys}
-          expandKey={collapseKey}
-          expanded={expanded}
-          setExpanded={setExpanded}
-        />
+        <RowListView list={block.rows} variant="project" />
       )}
+    </View>
+  );
+}
+
+export function ProjectBlocks({ blocks }: { blocks: ProjectBlock<ProjectRef, WorkspaceRef>[] }) {
+  return (
+    <>
+      {blocks.map((block) => (
+        <ProjectBlockView key={block.key} block={block} />
+      ))}
+    </>
+  );
+}
+
+/** Project blocks under one host heading. */
+export function HostBlocksView({ host }: { host: HostBlocks<ProjectRef, WorkspaceRef> }) {
+  return (
+    <HostGroup
+      hostId={host.hostId}
+      guideX={7}
+      section
+      collapseKey={host.collapseKey}
+      collapsed={host.collapsed}
+      count={host.count}
+      guideBottom={host.guideBottom}
+    >
+      <ProjectBlocks blocks={host.blocks} />
+    </HostGroup>
+  );
+}
+
+export function StatusGroupView({ section }: { section: StatusSection<WorkspaceRef> }) {
+  return (
+    <View style={{ paddingBottom: section.collapsed ? 0 : 12 }}>
+      <DisclosureRow
+        label={section.title ?? STATUS_LABEL[section.indicator] ?? section.indicator}
+        collapseKey={section.collapseKey}
+        collapsed={section.collapsed}
+        leading={
+          <LeadingSlot>
+            <IndicatorGlyph indicator={section.indicator} />
+          </LeadingSlot>
+        }
+      />
+      {section.collapsed ? null : <RowListView list={section.rows} variant="status" />}
     </View>
   );
 }
@@ -584,141 +513,14 @@ function GhostNewWorkspace({ onPress }: { onPress: () => void }) {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        backgroundColor: pressed ? palette.pressed : hover.hovered ? palette.hover : "transparent",
+        backgroundColor: fill(palette, pressed, hover.hovered),
       }}
     >
-      <View style={{ width: touch ? 20 : 16, alignItems: "center" }}>
+      <LeadingSlot>
         <Icon name="Plus" size={touch ? 18 : 14} color={color} />
-      </View>
+      </LeadingSlot>
       <Text style={{ color, fontSize: 14 }}>New workspace</Text>
     </Pressable>
-  );
-}
-
-function StatusGlyph({ indicator }: { indicator: WorkspaceIndicator }) {
-  const { palette, theme, touch } = useSidebar();
-  let content;
-  if (indicator === "running") content = <StatusRing color={palette.dot.running} />;
-  else if (indicator === "needs_input")
-    content = <NeedsInputGlyph palette={palette} theme={theme} />;
-  else {
-    const color =
-      indicator === "failed"
-        ? palette.dot.danger
-        : indicator === "attention"
-          ? palette.dot.success
-          : palette.extraMuted;
-    content = (
-      <View
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: color,
-          opacity: indicator === "done" ? 0.5 : 1,
-        }}
-      />
-    );
-  }
-  return (
-    <View
-      style={{ width: touch ? 20 : 16, height: 20, alignItems: "center", justifyContent: "center" }}
-    >
-      {content}
-    </View>
-  );
-}
-
-export function StatusGroup({
-  indicator,
-  title,
-  items,
-  doneKeys,
-  expanded,
-  setExpanded,
-}: {
-  indicator: WorkspaceIndicator;
-  title: string | null;
-  items: readonly WorkspaceRef[];
-  doneKeys: ReadonlySet<string>;
-  expanded: ReadonlySet<string>;
-  setExpanded: (key: string, on: boolean) => void;
-}) {
-  const { palette, preferences } = useSidebar();
-  const hover = useHover();
-  const key = `status:${indicator}`;
-  const collapsed = preferences.values.collapsed.includes(key);
-  const toggle = useCallback(
-    () =>
-      preferences.update((values) => ({
-        collapsed: values.collapsed.includes(key)
-          ? values.collapsed.filter((entry) => entry !== key)
-          : [...values.collapsed, key],
-      })),
-    [preferences, key],
-  );
-  const label = title ?? STATUS_LABEL[indicator];
-  return (
-    <View style={{ paddingBottom: collapsed ? 0 : 12 }}>
-      <GroupHeaderRow
-        label={label}
-        leading={
-          hover.hovered ? <Chevron collapsed={collapsed} /> : <StatusGlyph indicator={indicator} />
-        }
-        collapsed={collapsed}
-        onToggle={toggle}
-        hover={hover}
-      />
-      {collapsed ? null : (
-        <GroupRows
-          items={items}
-          variant="status"
-          limit={WORKSPACE_LIMIT}
-          doneKeys={doneKeys}
-          expandKey={key}
-          expanded={expanded}
-          setExpanded={setExpanded}
-        />
-      )}
-    </View>
-  );
-}
-
-export function PinnedSection({
-  items,
-  expanded,
-  setExpanded,
-}: {
-  items: readonly WorkspaceRef[];
-  expanded: ReadonlySet<string>;
-  setExpanded: (key: string, on: boolean) => void;
-}) {
-  const { preferences } = useSidebar();
-  const collapsed = preferences.values.collapsed.includes("pinned");
-  const toggle = useCallback(
-    () =>
-      preferences.update((values) => ({
-        collapsed: values.collapsed.includes("pinned")
-          ? values.collapsed.filter((key) => key !== "pinned")
-          : [...values.collapsed, "pinned"],
-      })),
-    [preferences],
-  );
-  if (items.length === 0) return null;
-  return (
-    <View style={{ marginBottom: 4 }}>
-      <SectionHeader title="Pinned" collapsed={collapsed} onToggle={toggle} />
-      {collapsed ? null : (
-        <GroupRows
-          items={items}
-          variant="pinned"
-          limit={PINNED_LIMIT}
-          expandKey="pinned"
-          expanded={expanded}
-          setExpanded={setExpanded}
-        />
-      )}
-    </View>
   );
 }
 

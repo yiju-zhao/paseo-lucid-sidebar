@@ -7,61 +7,67 @@ import {
 } from "../shared/preferences";
 
 type Patch = Partial<SidebarPreferences>;
+type PatchFn = (values: SidebarPreferences) => Patch;
 
 export interface Preferences {
+  /** The stored document has not been read yet; render nothing that writes it. */
+  loading: boolean;
   values: SidebarPreferences;
   /** A patch, or a function of the latest values returning one. */
-  update(patch: Patch | ((values: SidebarPreferences) => Patch)): void;
+  update(patch: Patch | PatchFn): void;
   /** Set when the stored preferences cannot be read or saved; the view still works in memory. */
   error: string | null;
 }
 
 /**
- * Stored preferences with optimistic updates. Saves are revision checked, so changes made while
- * a save is in flight wait for the new revision and are then saved together.
+ * Stored preferences with optimistic updates. Changes queue as patches over the stored values,
+ * so a change made during a save, or after another surface saved, applies to the newest
+ * document. One save runs at a time against the displayed revision; acknowledged patches leave
+ * the queue once that save's new revision arrives.
  */
 export function usePreferences(): Preferences {
   const settings = useSettings(sidebarSettings);
   const ready = settings.status === "ready";
-  const [optimistic, setOptimistic] = useState<SidebarPreferences | null>(null);
-  const stored = ready ? settings.values : DEFAULT_PREFERENCES;
-  const values = optimistic ?? stored;
-  const valuesRef = useRef(values);
-  valuesRef.current = values;
-  const inFlight = useRef(false);
-  const pending = useRef<SidebarPreferences | null>(null);
+  const revision = ready ? settings.revision : null;
+  const base = ready ? settings.values : DEFAULT_PREFERENCES;
+  const [queue, setQueue] = useState<readonly PatchFn[]>([]);
+  const [saving, setSaving] = useState(false);
+  const acked = useRef<{ count: number; revision: string } | null>(null);
+  const failed = useRef<{ queue: readonly PatchFn[]; revision: string } | null>(null);
 
-  const flush = useCallback(() => {
-    if (settings.status !== "ready" || inFlight.current || !pending.current) return;
-    const next = pending.current;
-    pending.current = null;
-    inFlight.current = true;
-    void settings.save(next, settings.revision).then((saved) => {
-      inFlight.current = false;
-      if (!saved && !pending.current) setOptimistic(null);
+  const values = useMemo(
+    () => queue.reduce((current, patch) => ({ ...current, ...patch(current) }), base),
+    [queue, base],
+  );
+
+  // The saved revision arrived: its patches are now part of the stored values.
+  useEffect(() => {
+    const done = acked.current;
+    if (!done || revision === null || revision === done.revision) return;
+    acked.current = null;
+    setQueue((current) => current.slice(done.count));
+  }, [revision]);
+
+  useEffect(() => {
+    if (!ready || saving || acked.current || queue.length === 0) return;
+    // A failed save retries only after the queue or the stored document changes.
+    if (failed.current?.queue === queue && failed.current.revision === settings.revision) return;
+    const attempt = { count: queue.length, revision: settings.revision };
+    setSaving(true);
+    void settings.save(values, settings.revision).then((saved) => {
+      if (saved) acked.current = attempt;
+      else failed.current = { queue, revision: attempt.revision };
+      setSaving(false);
       return undefined;
     });
-  }, [settings]);
+  }, [ready, saving, queue, values, settings]);
 
-  // A new revision means the last save landed; save anything queued behind it.
-  useEffect(() => {
-    if (pending.current) flush();
-    else if (!inFlight.current) setOptimistic(null);
-  }, [ready, ready ? settings.revision : null, flush]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const update = useCallback<Preferences["update"]>(
-    (patch) => {
-      const current = valuesRef.current;
-      const next = { ...current, ...(typeof patch === "function" ? patch(current) : patch) };
-      valuesRef.current = next;
-      setOptimistic(next);
-      pending.current = next;
-      flush();
-    },
-    [flush],
-  );
+  const update = useCallback((patch: Patch | PatchFn) => {
+    setQueue((current) => [...current, typeof patch === "function" ? patch : () => patch]);
+  }, []);
 
   let error: string | null = settings.saveError;
   if (settings.status === "error" || settings.status === "invalid") error = settings.error;
-  return useMemo(() => ({ values, update, error }), [values, update, error]);
+  const loading = settings.status === "loading";
+  return useMemo(() => ({ loading, values, update, error }), [loading, values, update, error]);
 }

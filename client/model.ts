@@ -1,10 +1,12 @@
 import type { PluginWorkspaceSnapshot, WorkspaceIndicator } from "@getpaseo/plugin";
 import type { SidebarPreferences, Sort, TitleSource } from "../shared/preferences";
 
+/** Pure workspace rules: ordering, visibility and formatting. No React. */
+
 export type Workspace = PluginWorkspaceSnapshot;
 
 /** Status groups, in the order the built-in status grouping shows them. */
-export const STATUS_ORDER: readonly WorkspaceIndicator[] = [
+const STATUS_ORDER: readonly WorkspaceIndicator[] = [
   "needs_input",
   "failed",
   "attention",
@@ -20,6 +22,12 @@ export const STATUS_LABEL: Record<WorkspaceIndicator, string> = {
   done: "Done",
 };
 
+/** Position of a status group; statuses a newer host invents sort last. */
+export function statusRank(indicator: string): number {
+  const index = STATUS_ORDER.indexOf(indicator as WorkspaceIndicator);
+  return index === -1 ? STATUS_ORDER.length : index;
+}
+
 /** Aggregate priority for a collapsed project's badge. `done` shows nothing. */
 const AGGREGATE_ORDER: readonly WorkspaceIndicator[] = [
   "needs_input",
@@ -31,7 +39,10 @@ const AGGREGATE_ORDER: readonly WorkspaceIndicator[] = [
 
 export function aggregateIndicator(indicators: Iterable<WorkspaceIndicator>): WorkspaceIndicator {
   let best = AGGREGATE_ORDER.length - 1;
-  for (const indicator of indicators) best = Math.min(best, AGGREGATE_ORDER.indexOf(indicator));
+  for (const indicator of indicators) {
+    const index = AGGREGATE_ORDER.indexOf(indicator);
+    if (index !== -1) best = Math.min(best, index);
+  }
   return AGGREGATE_ORDER[best];
 }
 
@@ -87,13 +98,15 @@ export function compareStatusRows(projectName: (workspace: Workspace) => string)
 
 export const labelKey = (label: string) => label.trim().toLowerCase();
 
-/**
- * Whether a workspace passes the visibility filters. Pinned workspaces are filtered too;
- * the project filter takes the workspace's project view key.
- */
+/** Whether a workspace passes the visibility filters; `viewKey` is its project's view key. */
+export type VisibilityFilters = Pick<
+  SidebarPreferences,
+  "showBackground" | "hostFilter" | "projectFilter" | "labelFilter"
+>;
+
 export function isVisible(
   workspace: Workspace,
-  preferences: SidebarPreferences,
+  preferences: VisibilityFilters,
   viewKey: string,
 ): boolean {
   if (!preferences.showBackground && workspace.background) return false;
@@ -102,13 +115,13 @@ export function isVisible(
   if (preferences.projectFilter.length > 0 && !preferences.projectFilter.includes(viewKey))
     return false;
   if (preferences.labelFilter.length > 0) {
-    const keys = workspace.labels.length > 0 ? workspace.labels.map(labelKey) : [""];
-    if (!keys.some((key) => preferences.labelFilter.includes(key))) return false;
+    const labels = workspace.labels.length > 0 ? workspace.labels.map(labelKey) : [""];
+    if (!labels.some((label) => preferences.labelFilter.includes(label))) return false;
   }
   return true;
 }
 
-export function hasFilter(preferences: SidebarPreferences): boolean {
+export function hasFilter(preferences: VisibilityFilters): boolean {
   return (
     preferences.hostFilter.length > 0 ||
     preferences.projectFilter.length > 0 ||
@@ -116,32 +129,16 @@ export function hasFilter(preferences: SidebarPreferences): boolean {
   );
 }
 
-export interface Visibility<T> {
-  /** The open workspace when the limit would hide it; shown above the rest. */
-  hoisted: T | null;
-  shown: T[];
-  hiddenCount: number;
-}
-
 /**
- * The built-in "Show more" rule: the first `limit` rows always show; in workspace groups,
- * rows that are not done also always show. The open workspace is hoisted when it would hide.
+ * Stable partition by host in `compareHosts` order. Order inside a host is kept, so the
+ * section's own sort still applies within each host.
  */
-export function splitVisible<T extends { key: string }>(
+export function clusterByHost<T extends { hostId: string }>(
   items: readonly T[],
-  options: { limit: number; expanded: boolean; isDone?: (item: T) => boolean; activeKey?: string },
-): Visibility<T> {
-  if (options.expanded) return { hoisted: null, shown: [...items], hiddenCount: 0 };
-  const shown: T[] = [];
-  let hoisted: T | null = null;
-  let hiddenCount = 0;
-  items.forEach((item, index) => {
-    const baseline = index < options.limit || (options.isDone ? !options.isDone(item) : false);
-    if (baseline) shown.push(item);
-    else if (item.key === options.activeKey) hoisted = item;
-    else hiddenCount += 1;
-  });
-  return { hoisted, shown, hiddenCount };
+  compareHosts: (a: string, b: string) => number,
+): T[] {
+  const order = [...new Set(items.map((item) => item.hostId))].sort(compareHosts);
+  return order.flatMap((hostId) => items.filter((item) => item.hostId === hostId));
 }
 
 /** `now`, `5m`, `3h`, `2d`, then `Jan 15`. */
@@ -182,10 +179,7 @@ export function compactNumber(value: number): string {
     [1e3, "k"],
   ] as const;
   for (const [size, suffix] of units) {
-    if (Math.abs(value) >= size) {
-      const scaled = Math.round((value / size) * 10) / 10;
-      return `${scaled}${suffix}`;
-    }
+    if (Math.abs(value) >= size) return `${Math.round((value / size) * 10) / 10}${suffix}`;
   }
   return String(value);
 }
@@ -198,20 +192,4 @@ export function toggled<T>(list: readonly T[], item: T): T[] {
 export function projectInitial(name: string): string {
   const segment = name.split("/").filter(Boolean).pop() ?? name;
   return (segment.trim()[0] ?? "?").toUpperCase();
-}
-
-/**
- * Stable partition by host: the local host first, then hosts by label. Order inside a host is
- * kept, so the section's own sort still applies within each host.
- */
-export function clusterByHost<T extends { hostId: string }>(
-  items: readonly T[],
-  localHostId: string | null,
-  hostLabel: (hostId: string) => string,
-): T[] {
-  const rank = (hostId: string) => (hostId === localHostId ? 0 : 1);
-  const order = [...new Set(items.map((item) => item.hostId))].sort(
-    (a, b) => rank(a) - rank(b) || compareNames(hostLabel(a), hostLabel(b)) || a.localeCompare(b),
-  );
-  return order.flatMap((hostId) => items.filter((item) => item.hostId === hostId));
 }

@@ -33,10 +33,13 @@ function state(patch: Partial<ListState> = {}): ListState {
 }
 
 describe("buildRowList", () => {
+  // The show-more rules, without host headings.
+  const flat = state({ groupHosts: false });
+
   it("keeps every non-done row past the limit and hides done ones", () => {
     const items = rows(LOCAL, 10);
     const done = new Set(ids(items.slice(8)));
-    const list = buildRowList("s", items, state(), {
+    const list = buildRowList("s", items, flat, {
       limit: 7,
       isDone: (item) => done.has(item.key),
     });
@@ -46,14 +49,16 @@ describe("buildRowList", () => {
 
   it("hoists the open workspace when the limit would hide it", () => {
     const items = rows(LOCAL, 10);
-    const list = buildRowList("s", items, state({ activeKey: items[9].key }), { limit: 7 });
+    const list = buildRowList("s", items, state({ groupHosts: false, activeKey: items[9].key }), {
+      limit: 7,
+    });
     assert.equal(list.rows[0].key, items[9].key);
     assert.deepEqual(list.more, { hidden: 2, expanded: false });
   });
 
   it("offers Show less only when folding would hide rows", () => {
     const items = rows(LOCAL, 9);
-    const list = buildRowList("s", items, state({ expanded: new Set(["s"]) }), {
+    const list = buildRowList("s", items, state({ groupHosts: false, expanded: new Set(["s"]) }), {
       limit: 7,
       isDone: () => false,
     });
@@ -91,6 +96,14 @@ describe("buildRowList", () => {
     const list = buildRowList("s", items, state({ activeKey: active }), { limit: 7 });
     const remote = list.hosts?.find((host) => host.hostId === REMOTE);
     assert.deepEqual(ids(remote?.rows ?? []), [active]);
+  });
+
+  it("gives a section with a single host its heading too", () => {
+    const list = buildRowList("status:attention", rows(REMOTE, 2), state(), { limit: 7 });
+    assert.deepEqual(
+      list.hosts?.map((host) => [host.hostId, host.rows.length]),
+      [[REMOTE, 2]],
+    );
   });
 
   it("stays flat when hosts are not kept together", () => {
@@ -179,10 +192,9 @@ describe("buildProjects", () => {
       { ref: project(REMOTE, "pinned"), viewKey: "pinned-only" },
     ];
     const layout = buildProjects(inputs, facts({ used: [row(LOCAL, "a")] }), state(), noFilters);
-    assert.equal(layout.hosts, null);
     assert.deepEqual(
-      layout.blocks.map((block) => block.viewKey),
-      ["used"],
+      layout.hosts?.map((host) => [host.hostId, host.blocks.map((block) => block.viewKey)]),
+      [[LOCAL, ["used"]]],
     );
   });
 
@@ -210,7 +222,7 @@ describe("buildProjects", () => {
     const layout = buildProjects(
       [{ ref: project(LOCAL, "p"), viewKey: "repo" }],
       data,
-      state(),
+      state({ groupHosts: false }),
       noFilters,
     );
     assert.equal(layout.blocks[0].aggregate, "running");

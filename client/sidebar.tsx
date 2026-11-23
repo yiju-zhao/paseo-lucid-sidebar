@@ -85,13 +85,14 @@ function SidebarContent({
   const activeKey = view.active.workspace?.key ?? null;
   const state = useMemo<ListState>(
     () => ({
-      groupHosts: values.clusterByHost,
+      // Headings only help when the view spans hosts; then every section gets them.
+      groupHosts: values.clusterByHost && data.multiHost,
       compareHosts: hosts.compare,
       collapsed: new Set(values.collapsed),
       expanded,
       activeKey,
     }),
-    [values.clusterByHost, values.collapsed, hosts, expanded, activeKey],
+    [values.clusterByHost, data.multiHost, values.collapsed, hosts, expanded, activeKey],
   );
   const projectMode = values.grouping === "project";
   const pinned = useMemo(() => buildPinned(data.pinned, state), [data.pinned, state]);

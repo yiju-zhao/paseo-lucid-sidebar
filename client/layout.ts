@@ -23,7 +23,11 @@ export type CompareHosts = (a: string, b: string) => number;
 
 /** State shared by every list: how hosts sort, and what is folded or expanded. */
 export interface ListState {
-  /** "Keep hosts together". */
+  /**
+   * Keep each host's items together under host headings. Decided for the whole view (the
+   * preference, and visible workspaces spanning hosts), so a section with a single host still
+   * gets its heading.
+   */
   groupHosts: boolean;
   compareHosts: CompareHosts;
   /** Stored collapse keys. */
@@ -55,7 +59,7 @@ export interface RowList<T> {
   key: string;
   /** Rows in order, when the list is not split into hosts. */
   rows: T[];
-  /** Host groups in order, when hosts are kept together and the list spans several. */
+  /** Host groups in order, when hosts are kept together. */
   hosts: HostRows<T>[] | null;
   /** The "Show more" toggle, when folding would hide rows. */
   more: { hidden: number; expanded: boolean } | null;
@@ -74,7 +78,7 @@ export function buildRowList<T extends Item>(
 ): RowList<T> {
   const ordered = state.groupHosts ? clusterByHost(items, state.compareHosts) : [...items];
   const hostIds = [...new Set(ordered.map((item) => item.hostId))];
-  const split = state.groupHosts && hostIds.length > 1;
+  const split = state.groupHosts && hostIds.length > 0;
   const hostKey = (hostId: string) => keys.sectionHost(key, hostId);
   const open = split
     ? ordered.filter((item) => !state.collapsed.has(hostKey(item.hostId)))
@@ -216,7 +220,7 @@ export function buildProjects<P extends Item, T extends Item>(
 
   const ordered = state.groupHosts ? clusterByHost(blocks, state.compareHosts) : blocks;
   const hostIds = [...new Set(ordered.map((block) => block.hostId))];
-  if (!state.groupHosts || hostIds.length < 2) return { blocks: ordered, hosts: null };
+  if (!state.groupHosts) return { blocks: ordered, hosts: null };
   return {
     blocks: [],
     hosts: hostIds.map((hostId) => {

@@ -1,7 +1,7 @@
 {
   "name": "paseo-lucid-sidebar",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "files": [
     "paseo-plugin.json",
     "OVERVIEW.md",
@@ -10,7 +10,8 @@
     "index.client.tsx",
     "client/",
     "shared/",
-    "assets/"
+    "assets/",
+    "LICENSE"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests",
@@ -31,5 +32,6 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yiju-zhao/paseo-lucid-sidebar.git"
-  }
+  },
+  "license": "MIT"
 }

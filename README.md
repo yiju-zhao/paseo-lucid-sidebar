@@ -27,16 +27,16 @@ See [OVERVIEW.md](OVERVIEW.md) for the full description, the data the plugin rea
 Install from GitHub, pinned to a release:
 
 ```bash
-paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.1.0
+paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.2.0
 ```
 
-Then choose **Workspace sidebar** under Settings > Sidebar > Sidebar view. Paseo does not switch views on install, and choosing the default view again restores the built-in list.
+Then choose **Lucid sidebar** under Settings > Sidebar > Sidebar view. Paseo does not switch views on install, and choosing the default view again restores the built-in list.
 
 Update or remove it later:
 
 ```bash
-paseo plugin update paseo-host-sidebar
-paseo plugin remove paseo-host-sidebar
+paseo plugin update paseo-lucid-sidebar
+paseo plugin remove paseo-lucid-sidebar
 ```
 
 The plugin only has client code, so installing it on one daemon covers every host the app is connected to.
@@ -52,8 +52,8 @@ npm test            # list model and save queue tests
 
 # Run your checkout in Paseo, then reload after each change
 paseo plugin install "$(pwd)"
-paseo plugin reload paseo-host-sidebar
-paseo plugin logs paseo-host-sidebar
+paseo plugin reload paseo-lucid-sidebar
+paseo plugin logs paseo-lucid-sidebar
 ```
 
 Paseo compiles the TypeScript itself; there is no build step. Client code must use React Native primitives only, so it runs on desktop, web and mobile.
@@ -78,3 +78,7 @@ Paseo compiles the TypeScript itself; there is no build step. Client code must u
 | `tests/` | `node:test` suites run with tsx |
 
 To add an item to the row's second line, add one entry to `ROW_ITEMS` in `client/row-items.tsx`, and a switch to `rowItems` in `shared/preferences.ts` if it needs one. To change the defaults new users see, edit the schema in `shared/preferences.ts`; changing a stored format needs a settings migration there.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

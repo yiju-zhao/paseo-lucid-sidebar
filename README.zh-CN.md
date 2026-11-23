@@ -27,16 +27,16 @@
 从 GitHub 安装，并固定到某个发布版本：
 
 ```bash
-paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.1.0
+paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.2.0
 ```
 
-然后在 设置 > 侧边栏 > 侧边栏视图 中选择 **Workspace sidebar**。安装后 Paseo 不会自动切换视图，重新选择默认视图即可恢复内置列表。
+然后在 设置 > 侧边栏 > 侧边栏视图 中选择 **Lucid sidebar**。安装后 Paseo 不会自动切换视图，重新选择默认视图即可恢复内置列表。
 
 之后更新或移除：
 
 ```bash
-paseo plugin update paseo-host-sidebar
-paseo plugin remove paseo-host-sidebar
+paseo plugin update paseo-lucid-sidebar
+paseo plugin remove paseo-lucid-sidebar
 ```
 
 插件只有客户端代码，所以安装在一个 daemon 上就能覆盖 app 连接的所有 host。
@@ -52,8 +52,8 @@ npm test            # 列表模型和保存队列的测试
 
 # 在 Paseo 中运行本地代码，每次修改后 reload
 paseo plugin install "$(pwd)"
-paseo plugin reload paseo-host-sidebar
-paseo plugin logs paseo-host-sidebar
+paseo plugin reload paseo-lucid-sidebar
+paseo plugin logs paseo-lucid-sidebar
 ```
 
 Paseo 会自己编译 TypeScript，不需要构建步骤。客户端代码只能使用 React Native 基础组件，这样才能在桌面、网页和手机上运行。
@@ -78,3 +78,7 @@ Paseo 会自己编译 TypeScript，不需要构建步骤。客户端代码只能
 | `tests/` | 用 tsx 运行的 `node:test` 测试 |
 
 要给行的第二行加一个显示项，在 `client/row-items.tsx` 的 `ROW_ITEMS` 里加一个条目；如果需要开关，再在 `shared/preferences.ts` 的 `rowItems` 里加一项。要修改新用户看到的默认值，编辑 `shared/preferences.ts` 里的结构；如果改动了已存储数据的格式，需要在那里加一个设置迁移。
+
+## 许可证
+
+MIT，见 [LICENSE](LICENSE)。

@@ -1,10 +1,10 @@
 {
-  "id": "paseo-host-sidebar",
-  "name": "Workspace sidebar",
+  "id": "paseo-lucid-sidebar",
+  "name": "Lucid sidebar",
   "description": "A workspace sidebar that keeps each host's projects and workspaces together under foldable headings.",
   "translations": {
     "zh-CN": {
-      "name": "工作区侧边栏",
+      "name": "Lucid 侧边栏",
       "description": "把每台 host 的项目和工作区放在一起、归在可折叠标题下的工作区侧边栏。"
     }
   },

@@ -4,7 +4,7 @@ import { WorkspaceSidebar } from "./client/sidebar";
 export default function contribute(client: PluginClientContext) {
   const remove = client.addSidebarView({
     id: "hosts",
-    title: "Workspace sidebar",
+    title: "Lucid sidebar",
     description: "The default workspace list, rebuilt as a plugin view",
     Component: WorkspaceSidebar,
   });

@@ -2,7 +2,7 @@ A workspace sidebar for people who run Paseo on more than one host. It keeps the
 
 ## Setup
 
-Paseo does not switch to this view when the plugin is installed. Choose **Workspace sidebar** under Settings > Sidebar > Sidebar view. Choosing the default view again restores the built-in list.
+Paseo does not switch to this view when the plugin is installed. Choose **Lucid sidebar** under Settings > Sidebar > Sidebar view. Choosing the default view again restores the built-in list.
 
 Requires Paseo 0.16.1 or later on the app and on the daemon the plugin is installed on, with plugins enabled on that daemon. The plugin only has client code and shows workspaces from every connected host. With a single host it looks like the built-in list.
 

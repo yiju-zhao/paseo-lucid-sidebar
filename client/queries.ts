@@ -7,7 +7,7 @@ import {
   type WorkspaceRef,
 } from "@getpaseo/plugin/client";
 import type { SidebarPreferences } from "../shared/preferences";
-import { pairKey, type ProjectFacts, type ProjectInput } from "./layout";
+import type { ProjectFacts, ProjectInput } from "./layout";
 import {
   compareNames,
   comparePinned,
@@ -61,10 +61,6 @@ export function useSidebarData(
     (workspace: Workspace) => !workspace.pinnedAt && visible(workspace),
     [visible],
   );
-  const pairOf = useCallback(
-    (workspace: Workspace) => pairKey(workspace.hostId, viewKeyOf(workspace)),
-    [viewKeyOf],
-  );
 
   const pinned = useWorkspaces(
     useMemo(
@@ -76,13 +72,6 @@ export function useSidebarData(
     useMemo(
       () => ({ where: listed, orderBy: compareWorkspaces(sort), groupBy: viewKeyOf }),
       [listed, sort, viewKeyOf],
-    ),
-  );
-  const ever = useWorkspaces(useMemo(() => ({ groupBy: pairOf }), [pairOf]));
-  const kept = useWorkspaces(
-    useMemo(
-      () => ({ where: (w: Workspace) => showBackground || !w.background, groupBy: pairOf }),
-      [showBackground, pairOf],
     ),
   );
   const statusGroups = useWorkspaces(
@@ -143,8 +132,6 @@ export function useSidebarData(
       projects,
       facts: {
         rows: new Map(byProject.map((group) => [group.key, group.items])),
-        ever: new Set(ever.map((group) => group.key)),
-        kept: new Set(kept.map((group) => group.key)),
         indicators,
       },
       statusGroups,
@@ -154,15 +141,5 @@ export function useSidebarData(
         .sort((a, b) => compareNames(a.title, b.title)),
       projectOptions: [...firstByView].map(([viewKey, reference]) => ({ viewKey, reference })),
     };
-  }, [
-    projectRefs,
-    directory,
-    statusGroups,
-    pinned,
-    byProject,
-    ever,
-    kept,
-    hostGroups,
-    labelGroups,
-  ]);
+  }, [projectRefs, directory, statusGroups, pinned, byProject, hostGroups, labelGroups]);
 }

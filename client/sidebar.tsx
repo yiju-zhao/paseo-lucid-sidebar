@@ -96,12 +96,8 @@ function SidebarContent({
   const projectMode = values.grouping === "project";
   const pinned = useMemo(() => buildPinned(data.pinned, state), [data.pinned, state]);
   const projects = useMemo(
-    () =>
-      buildProjects(data.projects, data.facts, state, {
-        projects: values.projectFilter,
-        labels: values.labelFilter.length > 0,
-      }),
-    [data.projects, data.facts, state, values.projectFilter, values.labelFilter],
+    () => buildProjects(data.projects, data.facts, state, { projects: values.projectFilter }),
+    [data.projects, data.facts, state, values.projectFilter],
   );
   const statuses = useMemo(
     () => buildStatusGroups(data.statusGroups, state),
@@ -128,7 +124,7 @@ function SidebarContent({
         keyboardShouldPersistTaps="handled"
       >
         <PinnedSection list={pinned} />
-        {!projectMode || !listEmpty || filtered ? (
+        {!projectMode || !listEmpty || filtered || data.projects.length > 0 ? (
           <SectionHeader
             title="Workspaces"
             actions={
@@ -175,6 +171,12 @@ function SidebarContent({
         ) : null}
         {listEmpty && !filtered && projectMode && data.projects.length === 0 ? (
           <EmptyCard title="No projects yet" description="Add a project to get started" />
+        ) : null}
+        {listEmpty && !filtered && data.projects.length > 0 && data.pinned.length === 0 ? (
+          <EmptyCard
+            title="No workspaces yet"
+            description="Start one with New workspace. Projects without workspaces stay hidden."
+          />
         ) : null}
         <View style={{ height: 1 }} />
       </ScrollView>

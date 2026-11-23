@@ -5,7 +5,7 @@
 A [Paseo](https://paseo.sh) sidebar view for people who run Paseo on more than one host. It keeps the look and sorting of the built-in workspace list, and groups each host's projects and workspaces together under headings you can fold.
 
 - Host headings with a guide line in the host's color, this device's host first
-- A project on several hosts appears under each of them, with only that host's workspaces
+- A project on several hosts appears under each of them, with only that host's workspaces; projects with no workspaces stay hidden
 - Project tags on every row, in the same color as the project tile
 - Fold or unfold every host, project and status group with one button
 - Everything the built-in list shows: pinned workspaces, project or status grouping, status indicators, diff stats, pull requests, checks, services and labels, with the same display menu

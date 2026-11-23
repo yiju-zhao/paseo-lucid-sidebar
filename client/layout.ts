@@ -34,7 +34,7 @@ export interface ListState {
   activeKey: string | null;
 }
 
-/** Space below an open, non-empty project block. */
+/** Space below an open project block. */
 export const PROJECT_SPACING = 12;
 /** Space below a project header, which is all a folded block has. */
 export const HEADER_MARGIN = 4;
@@ -124,15 +124,9 @@ export interface ProjectInput<P extends Item> {
 export interface ProjectFacts<T extends Item> {
   /** Listed (visible, unpinned) rows per view key, in the workspace sort, across hosts. */
   rows: ReadonlyMap<string, readonly T[]>;
-  /** `pairKey`s of projects that ever had a workspace. */
-  ever: ReadonlySet<string>;
-  /** `pairKey`s of projects with a workspace the background filter keeps. */
-  kept: ReadonlySet<string>;
   /** Status of each listed row, by row key. */
   indicators: ReadonlyMap<string, WorkspaceIndicator>;
 }
-
-export const pairKey = (hostId: string, viewKey: string) => JSON.stringify([hostId, viewKey]);
 
 export interface ProjectBlock<P extends Item, T extends Item> {
   key: string;
@@ -143,8 +137,6 @@ export interface ProjectBlock<P extends Item, T extends Item> {
   projects: P[];
   collapseKey: string;
   collapsed: boolean;
-  /** No workspaces at all: the block offers "New workspace" instead of rows. */
-  empty: boolean;
   /** Status of its rows, for the folded badge. */
   aggregate: WorkspaceIndicator;
   rows: RowList<T>;
@@ -171,7 +163,7 @@ export interface ProjectLayout<P extends Item, T extends Item> {
 }
 
 /**
- * Project blocks in name order. With hosts kept together, each host gets its own block of a
+ * Project blocks in name order, leaving out projects with no listed workspace. With hosts kept together, each host gets its own block of a
  * project, and blocks sit under host headings; otherwise a project merges across hosts.
  * `projects` must arrive sorted by name and already filtered by host.
  */
@@ -179,7 +171,7 @@ export function buildProjects<P extends Item, T extends Item>(
   projects: readonly ProjectInput<P>[],
   facts: ProjectFacts<T>,
   state: ListState,
-  filters: { projects: readonly string[]; labels: boolean },
+  filters: { projects: readonly string[] },
 ): ProjectLayout<P, T> {
   const entries = new Map<string, { viewKey: string; hostId: string | null; refs: P[] }>();
   for (const { ref, viewKey } of projects) {
@@ -195,12 +187,8 @@ export function buildProjects<P extends Item, T extends Item>(
   for (const [key, { viewKey, hostId, refs }] of entries) {
     const all = facts.rows.get(viewKey) ?? [];
     const items = hostId === null ? all : all.filter((item) => item.hostId === hostId);
-    const pairs = refs.map((ref) => pairKey(ref.hostId, viewKey));
-    const empty = !pairs.some((pair) => facts.ever.has(pair));
-    // Every workspace hidden by the background filter: the project goes too.
-    if (!empty && !pairs.some((pair) => facts.kept.has(pair))) continue;
-    // With a label filter, only projects with matching workspaces stay.
-    if (filters.labels && items.length === 0) continue;
+    // A project with nothing to list is left out: never used, all pinned, or all filtered.
+    if (items.length === 0) continue;
     const collapseKey = keys.project(viewKey);
     const collapsed = state.collapsed.has(collapseKey);
     const indicators = items.flatMap((item) => facts.indicators.get(item.key) ?? []);
@@ -211,7 +199,6 @@ export function buildProjects<P extends Item, T extends Item>(
       projects: refs,
       collapseKey,
       collapsed,
-      empty,
       aggregate: aggregateIndicator(indicators),
       // A block holds one host or merges hosts on purpose, so its rows are never split.
       rows: buildRowList(
@@ -223,7 +210,7 @@ export function buildProjects<P extends Item, T extends Item>(
           isDone: (item) => facts.indicators.get(item.key) === "done",
         },
       ),
-      spacing: !collapsed && (items.length > 0 || empty) ? PROJECT_SPACING : 0,
+      spacing: collapsed ? 0 : PROJECT_SPACING,
     });
   }
 

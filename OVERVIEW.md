@@ -8,7 +8,7 @@ Requires Paseo 0.16.1 or later on the app and on the daemon the plugin is instal
 
 ## What it shows
 
-- **Hosts kept together.** In project grouping, each host gets a heading with its projects below it, this device's host first and the rest by name. A project that lives on several hosts appears under each of them, with only that host's workspaces. In the Pinned section and in status groups, a host's workspaces sit together under a smaller heading.
+- **Hosts kept together.** In project grouping, each host gets a heading with its projects below it, this device's host first and the rest by name. A project that lives on several hosts appears under each of them, with only that host's workspaces. Projects with no workspace to list, such as unused ones, stay hidden. In the Pinned section and in status groups, a host's workspaces sit together under a smaller heading.
 - **Foldable hosts with guide lines.** Press a host heading to fold or unfold it; a folded host shows how many projects or workspaces it holds. A thin line in the host's color runs down the side of everything that belongs to it.
 - **Project tags.** The second line of a row starts with the project name, as a bold tag in the same color as the project's tile. Rows under a project header leave it out, since the header already names the project. Project names in headers are bold.
 - **Everything the built-in list shows.** Pinned workspaces, grouping by project or status, sorting by creation time or last prompt, the 7 row "Show more" rule, status indicators, the time since the last status change or diff stats, branch, pull request, checks, running services and labels.

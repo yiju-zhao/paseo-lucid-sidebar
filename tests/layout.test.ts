@@ -6,7 +6,6 @@ import {
   buildProjects,
   buildRowList,
   buildStatusGroups,
-  pairKey,
   projectDisclosures,
   statusDisclosures,
   toggleAll,
@@ -106,23 +105,18 @@ describe("buildProjects", () => {
   const project = (hostId: string, id: string) => ({ key: `${hostId}/${id}`, hostId, id });
   const facts = (
     byView: Record<string, ReturnType<typeof row>[]>,
-    extra: { ever?: string[]; kept?: string[]; done?: string[] } = {},
+    extra: { done?: string[] } = {},
   ) => {
-    const all = Object.entries(byView).flatMap(([viewKey, items]) =>
-      items.map((item) => pairKey(item.hostId, viewKey)),
-    );
     const indicators = new Map<string, WorkspaceIndicator>();
     for (const items of Object.values(byView))
       for (const item of items)
         indicators.set(item.key, extra.done?.includes(item.key) ? "done" : "running");
     return {
       rows: new Map(Object.entries(byView)),
-      ever: new Set([...all, ...(extra.ever ?? [])]),
-      kept: new Set([...all, ...(extra.kept ?? [])]),
       indicators,
     };
   };
-  const noFilters = { projects: [], labels: false };
+  const noFilters = { projects: [] };
 
   it("splits a project across hosts under host headings, local host first", () => {
     const inputs = [
@@ -177,23 +171,19 @@ describe("buildProjects", () => {
     assert.ok(layout.hosts?.every((host) => host.guideBottom === 6));
   });
 
-  it("drops projects hidden by the background filter but keeps never-used ones", () => {
+  it("leaves out projects with no listed workspace, and hosts left with none", () => {
+    // Unused, all pinned, or all filtered out: no listed rows either way.
     const inputs = [
-      { ref: project(LOCAL, "bg"), viewKey: "background-only" },
-      { ref: project(LOCAL, "new"), viewKey: "fresh" },
+      { ref: project(LOCAL, "used"), viewKey: "used" },
+      { ref: project(LOCAL, "unused"), viewKey: "unused" },
+      { ref: project(REMOTE, "pinned"), viewKey: "pinned-only" },
     ];
-    const data = facts({}, { ever: [pairKey(LOCAL, "background-only")] });
-    const layout = buildProjects(inputs, data, state(), noFilters);
+    const layout = buildProjects(inputs, facts({ used: [row(LOCAL, "a")] }), state(), noFilters);
+    assert.equal(layout.hosts, null);
     assert.deepEqual(
-      layout.blocks.map((block) => [block.viewKey, block.empty]),
-      [["fresh", true]],
+      layout.blocks.map((block) => block.viewKey),
+      ["used"],
     );
-  });
-
-  it("drops projects without matching rows under a label filter", () => {
-    const inputs = [{ ref: project(LOCAL, "p"), viewKey: "repo" }];
-    const layout = buildProjects(inputs, facts({}), state(), { projects: [], labels: true });
-    assert.equal(layout.blocks.length, 0);
   });
 
   it("marks a folded host and still counts its blocks", () => {
@@ -251,11 +241,9 @@ describe("fold all", () => {
     ];
     const facts = {
       rows: new Map([["repo", [row(LOCAL, "a"), row(REMOTE, "b")]]]),
-      ever: new Set([pairKey(LOCAL, "repo"), pairKey(REMOTE, "repo")]),
-      kept: new Set([pairKey(LOCAL, "repo"), pairKey(REMOTE, "repo")]),
       indicators: new Map(),
     };
-    const layout = buildProjects(inputs, facts, state(), { projects: [], labels: false });
+    const layout = buildProjects(inputs, facts, state(), { projects: [] });
     assert.deepEqual(
       projectDisclosures(layout).sort(),
       [keys.host(LOCAL), keys.host(REMOTE), keys.project("repo")].sort(),

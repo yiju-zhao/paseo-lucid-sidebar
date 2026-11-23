@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useProject, type ProjectRef, type WorkspaceRef } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/ui";
@@ -450,9 +450,7 @@ function ProjectBlockView({
           />
         }
       />
-      {block.collapsed ? null : block.empty ? (
-        <GhostNewWorkspace onPress={newWorkspace} />
-      ) : (
+      {block.collapsed ? null : (
         <RowListView list={block.rows} variant="project" underHost={underHost} />
       )}
     </View>
@@ -508,41 +506,6 @@ export function StatusGroupView({ section }: { section: StatusSection<WorkspaceR
       />
       {section.collapsed ? null : <RowListView list={section.rows} variant="status" />}
     </View>
-  );
-}
-
-function GhostNewWorkspace({ onPress }: { onPress: () => void }) {
-  const { theme, palette, touch } = useSidebar();
-  const hover = useHover();
-  const [pressed, setPressed] = useState(false);
-  const color = hover.hovered || pressed ? theme.colors.foreground : theme.colors.foregroundMuted;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="New workspace"
-      onPress={onPress}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
-      onHoverIn={hover.onHoverIn}
-      onHoverOut={hover.onHoverOut}
-      style={{
-        minHeight: touch ? 44 : 36,
-        marginBottom: 2,
-        paddingVertical: 8,
-        paddingLeft: 16,
-        paddingRight: 12,
-        borderRadius: 8,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        backgroundColor: fill(palette, pressed, hover.hovered),
-      }}
-    >
-      <LeadingSlot>
-        <Icon name="Plus" size={touch ? 18 : 14} color={color} />
-      </LeadingSlot>
-      <Text style={{ color, fontSize: 14 }}>New workspace</Text>
-    </Pressable>
   );
 }
 

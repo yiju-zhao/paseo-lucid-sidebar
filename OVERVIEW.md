@@ -7,7 +7,7 @@ Requires Paseo 0.16.1 or later on the app and on the daemon the plugin is instal
 ## What it shows
 
 - A Pinned section, then workspaces grouped by project or by status, as in the built-in list. Projects are sorted by name; workspaces by creation time or last prompt. Each group shows 7 rows plus any that are not done, with Show more for the rest.
-- Rows with the status indicator, the title or branch name, and the time since the last status change or the diff stats. The second line can show the branch, host, pull request, checks, running service and tags. The project leads the tags as a bold chip in the same color as its tile, followed by the labels.
+- Rows with the status indicator, the title or branch name, and the time since the last status change or the diff stats. The second line starts with the project, as a bold chip in the same color as its tile, and can then show the branch, host, pull request, checks, running service and labels.
 - Workspaces of the same host stay together inside each section, the local host first, under a small heading when a section spans several hosts. Turn this off with Keep hosts together in the display menu.
 - The display menu in the Workspaces header: grouping, sort, title, shown items, host, project and label filters, and background workspaces.
 - Row actions: copy path or branch name, rename, pin, labels and archive. Worktrees ask for confirmation before archiving.

@@ -463,6 +463,30 @@ function MetaRow({
   const muted = theme.colors.foregroundMuted;
   const items: { key: string; node: ReactNode; shrink: number }[] = [];
 
+  // The project leads the line, as a bold chip in its tile's color.
+  if (rowItems.project)
+    items.push({
+      key: "project",
+      shrink: 1,
+      node: (
+        <View
+          style={{
+            paddingHorizontal: 6,
+            borderRadius: 999,
+            backgroundColor: identityColor(viewKey, palette.dark).fill,
+            flexShrink: 1,
+            minWidth: 0,
+          }}
+        >
+          <Text
+            numberOfLines={1}
+            style={{ color: "#ffffff", fontSize: 12, lineHeight: 16, fontWeight: "600" }}
+          >
+            {projectName}
+          </Text>
+        </View>
+      ),
+    });
   const branch = normalizeBranch(workspace.branch);
   if (rowItems.branch && branch)
     items.push({
@@ -533,35 +557,15 @@ function MetaRow({
       ),
     });
   }
-  // Tags: the project first, as a chip in its tile's color, then the labels.
-  const labels = rowItems.labels ? workspace.labels : [];
-  if (rowItems.project || labels.length > 0)
+  if (rowItems.labels && workspace.labels.length > 0)
     items.push({
-      key: "tags",
+      key: "labels",
       shrink: 1,
       node: (
         <View
           style={{ flexDirection: "row", gap: 4, minWidth: 0, flexShrink: 1, overflow: "hidden" }}
         >
-          {rowItems.project ? (
-            <View
-              style={{
-                paddingHorizontal: 6,
-                borderRadius: 999,
-                backgroundColor: identityColor(viewKey, palette.dark).fill,
-                flexShrink: 1,
-                minWidth: 0,
-              }}
-            >
-              <Text
-                numberOfLines={1}
-                style={{ color: "#ffffff", fontSize: 12, lineHeight: 16, fontWeight: "600" }}
-              >
-                {projectName}
-              </Text>
-            </View>
-          ) : null}
-          {labels.map((label) => {
+          {workspace.labels.map((label) => {
             const color = identityColor(labelKey(label), palette.dark);
             return (
               <View

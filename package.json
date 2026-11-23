@@ -26,7 +26,7 @@
     "typescript": "^5.9.3",
     "zod": "^4.4.3"
   },
-  "description": "The built-in Paseo workspace list rebuilt as a sidebar view.",
+  "description": "A Paseo workspace sidebar that keeps each host's projects and workspaces together under foldable headings.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yiju-zhao/paseo-host-sidebar.git"

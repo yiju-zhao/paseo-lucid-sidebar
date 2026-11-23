@@ -197,9 +197,11 @@ export function GroupRows({
   expandKey,
   expanded,
   setExpanded,
+  hideHost,
 }: {
   items: readonly WorkspaceRef[];
   variant: RowVariant;
+  hideHost?: boolean;
   limit: number;
   /** Keys of done workspaces; only those hide past the limit. Undefined hides every row. */
   doneKeys?: ReadonlySet<string>;
@@ -243,7 +245,7 @@ export function GroupRows({
               indent={indent}
             />
           ) : null}
-          <WorkspaceRow reference={reference} variant={variant} hideHost={labelled} />
+          <WorkspaceRow reference={reference} variant={variant} hideHost={labelled || hideHost} />
         </Fragment>
       ))}
       {hiddenCount > 0 || isExpanded ? (
@@ -260,8 +262,21 @@ export function GroupRows({
   );
 }
 
-/** A small heading naming the host of the rows below it, in the host's identity color. */
-function HostHeading({ hostId, label, indent }: { hostId: string; label: string; indent: number }) {
+/**
+ * A heading naming the host of what follows, in the host's identity color. `section` is the
+ * larger heading above a host's projects.
+ */
+export function HostHeading({
+  hostId,
+  label,
+  indent,
+  section,
+}: {
+  hostId: string;
+  label: string;
+  indent: number;
+  section?: boolean;
+}) {
   const { palette, localHostId } = useSidebar();
   const color = identityColor(hostId, palette.dark).text;
   return (
@@ -271,13 +286,25 @@ function HostHeading({ hostId, label, indent }: { hostId: string; label: string;
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
-        paddingLeft: indent + 2,
-        paddingTop: 4,
-        paddingBottom: 2,
+        paddingLeft: section ? indent : indent + 2,
+        paddingTop: section ? 10 : 4,
+        paddingBottom: section ? 4 : 2,
       }}
     >
-      <Icon name={hostId === localHostId ? "Monitor" : "Server"} size={11} color={color} />
-      <Text numberOfLines={1} style={{ color, fontSize: 11, lineHeight: 14, fontWeight: "700" }}>
+      <Icon
+        name={hostId === localHostId ? "Monitor" : "Server"}
+        size={section ? 12 : 11}
+        color={color}
+      />
+      <Text
+        numberOfLines={1}
+        style={{
+          color,
+          fontSize: section ? 12 : 11,
+          lineHeight: section ? 16 : 14,
+          fontWeight: "700",
+        }}
+      >
         {label}
       </Text>
     </View>
@@ -285,6 +312,10 @@ function HostHeading({ hostId, label, indent }: { hostId: string; label: string;
 }
 
 export interface ProjectBlockData {
+  /** Identity of the block: the view key, or host and view key when hosts are kept apart. */
+  key: string;
+  /** Host of the first project ref; the only host when hosts are kept apart. */
+  hostId: string;
   viewKey: string;
   /** One ref per host the project lives on; the first names the project. */
   projects: readonly ProjectRef[];
@@ -300,8 +331,11 @@ export function ProjectBlock({
   doneKeys,
   expanded,
   setExpanded,
+  hideHost,
 }: {
   block: ProjectBlockData;
+  /** Set under a host heading, which already names the host. */
+  hideHost?: boolean;
   doneKeys: ReadonlySet<string>;
   expanded: ReadonlySet<string>;
   setExpanded: (key: string, on: boolean) => void;
@@ -309,7 +343,7 @@ export function ProjectBlock({
   const { view, theme, palette, touch, pointer, preferences } = useSidebar();
   const hover = useHover();
   const name = useProject(block.projects[0], (project) => project.displayName) ?? "";
-  const collapseKey = `project:${block.viewKey}`;
+  const collapseKey = `project:${block.key}`;
   const collapsed = preferences.values.collapsed.includes(collapseKey);
   const toggle = useCallback(
     () =>
@@ -374,6 +408,7 @@ export function ProjectBlock({
       ) : (
         <GroupRows
           items={block.items}
+          hideHost={hideHost}
           variant="project"
           limit={WORKSPACE_LIMIT}
           doneKeys={doneKeys}

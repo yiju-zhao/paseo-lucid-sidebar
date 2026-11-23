@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import {
   useHosts,
@@ -15,6 +15,7 @@ import { DisplayMenu, type LabelOption, type ProjectOption } from "./display-men
 import { useLocalHostId } from "./local-host";
 import {
   aggregateIndicator,
+  clusterByHost,
   compareNames,
   comparePinned,
   compareStatusRows,
@@ -30,6 +31,7 @@ import { usePreferences } from "./preferences";
 import { RuntimeProvider, useProjectDirectory } from "./runtime";
 import {
   EmptyCard,
+  HostHeading,
   PinnedSection,
   ProjectBlock,
   SectionHeader,
@@ -105,23 +107,38 @@ function SidebarContent({
     where: (workspace) => listed(workspace) && workspace.indicator === "done",
   });
   const doneKeys = useMemo(() => new Set(doneRefs.map((reference) => reference.key)), [doneRefs]);
+  const hostLabel = useCallback(
+    (hostId: string) => hosts.find((host) => host.serverId === hostId)?.label ?? hostId,
+    [hosts],
+  );
   const hostGroups = useWorkspaces({ where: visible, groupBy: (workspace) => workspace.hostId });
   const multiHost = hostGroups.length >= 2;
 
+  // Keeping hosts together gives each host its own block of a project; otherwise a project's
+  // blocks merge across hosts, like the built-in list.
+  const cluster = values.clusterByHost;
+  const blockKeyOf = useCallback(
+    (hostId: string, viewKey: string) => (cluster ? JSON.stringify([hostId, viewKey]) : viewKey),
+    [cluster],
+  );
+  const blockOf = useCallback(
+    (workspace: Workspace) => blockKeyOf(workspace.hostId, viewKeyOf(workspace)),
+    [blockKeyOf, viewKeyOf],
+  );
   const byProject = useWorkspaces({
     where: listed,
     orderBy: compareWorkspaces(values.sort),
-    groupBy: viewKeyOf,
+    groupBy: blockOf,
   });
   const projectStatus = useWorkspaces({
     where: listed,
-    groupBy: (workspace) => JSON.stringify([viewKeyOf(workspace), workspace.indicator]),
+    groupBy: (workspace) => JSON.stringify([blockOf(workspace), workspace.indicator]),
   });
   // Projects that ever had workspaces, and those with a workspace the background filter keeps.
-  const anyWorkspace = useWorkspaces({ groupBy: viewKeyOf });
+  const anyWorkspace = useWorkspaces({ groupBy: blockOf });
   const keptWorkspace = useWorkspaces({
     where: (workspace) => values.showBackground || !workspace.background,
-    groupBy: viewKeyOf,
+    groupBy: blockOf,
   });
   const projects = useProjects({
     where: (project) =>
@@ -146,33 +163,53 @@ function SidebarContent({
     const kept = new Set(keptWorkspace.map((group) => group.key));
     const statuses = new Map<string, WorkspaceIndicator[]>();
     for (const group of projectStatus) {
-      const [viewKey, indicator] = JSON.parse(group.key) as [string, WorkspaceIndicator];
-      statuses.set(viewKey, [...(statuses.get(viewKey) ?? []), indicator]);
+      const [key, indicator] = JSON.parse(group.key) as [string, WorkspaceIndicator];
+      statuses.set(key, [...(statuses.get(key) ?? []), indicator]);
     }
-    const refsByKey = new Map<string, ProjectRef[]>();
+    const refsByKey = new Map<string, { viewKey: string; refs: ProjectRef[] }>();
     for (const reference of projects) {
       const viewKey = directory.viewKey(reference.hostId, reference.id);
-      refsByKey.set(viewKey, [...(refsByKey.get(viewKey) ?? []), reference]);
+      const key = blockKeyOf(reference.hostId, viewKey);
+      const entry = refsByKey.get(key) ?? { viewKey, refs: [] };
+      entry.refs.push(reference);
+      refsByKey.set(key, entry);
     }
     const result: ProjectBlockData[] = [];
-    for (const [viewKey, refs] of refsByKey) {
+    for (const [key, { viewKey, refs }] of refsByKey) {
       if (values.projectFilter.length > 0 && !values.projectFilter.includes(viewKey)) continue;
-      const items: readonly WorkspaceRef[] = rows.get(viewKey) ?? [];
-      const empty = !ever.has(viewKey);
+      const items: readonly WorkspaceRef[] = rows.get(key) ?? [];
+      const empty = !ever.has(key);
       // Every workspace hidden by the background filter: the project goes too.
-      if (!empty && !kept.has(viewKey)) continue;
+      if (!empty && !kept.has(key)) continue;
       // With a label filter, only projects with matching workspaces stay.
       if (values.labelFilter.length > 0 && items.length === 0) continue;
       result.push({
+        key,
         viewKey,
+        hostId: refs[0].hostId,
         projects: refs,
         items,
         empty,
-        aggregate: aggregateIndicator(statuses.get(viewKey) ?? []),
+        aggregate: aggregateIndicator(statuses.get(key) ?? []),
       });
     }
-    return result;
-  }, [byProject, anyWorkspace, keptWorkspace, projectStatus, projects, directory, values]);
+    // Projects arrive sorted by name; keep that order inside each host.
+    return cluster ? clusterByHost(result, localHostId, hostLabel) : result;
+  }, [
+    byProject,
+    anyWorkspace,
+    keptWorkspace,
+    projectStatus,
+    projects,
+    directory,
+    values,
+    blockKeyOf,
+    cluster,
+    localHostId,
+    hostLabel,
+  ]);
+  const blockHosts = new Set(blocks.map((block) => block.hostId)).size;
+  const headBlocks = cluster && blockHosts > 1;
 
   const statusGroups = useWorkspaces({
     where: listed,
@@ -277,14 +314,24 @@ function SidebarContent({
         ) : null}
         {displayOpen ? <DisplayMenu projects={projectOptions} labels={labels} /> : null}
         {projectMode
-          ? blocks.map((block) => (
-              <ProjectBlock
-                key={block.viewKey}
-                block={block}
-                doneKeys={doneKeys}
-                expanded={expanded}
-                setExpanded={setExpanded}
-              />
+          ? blocks.map((block, index) => (
+              <Fragment key={block.key}>
+                {headBlocks && block.hostId !== blocks[index - 1]?.hostId ? (
+                  <HostHeading
+                    hostId={block.hostId}
+                    label={hostLabel(block.hostId)}
+                    indent={8}
+                    section
+                  />
+                ) : null}
+                <ProjectBlock
+                  hideHost={headBlocks}
+                  block={block}
+                  doneKeys={doneKeys}
+                  expanded={expanded}
+                  setExpanded={setExpanded}
+                />
+              </Fragment>
             ))
           : orderedStatusGroups.map((group) => (
               <StatusGroup

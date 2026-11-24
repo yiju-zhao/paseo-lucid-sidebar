@@ -3,18 +3,16 @@ import { SettingsCard, SettingsSection, SettingsSelect } from "@getpaseo/plugin/
 import type { SidebarPreferences } from "../../shared/preferences";
 import { useLocalHostId } from "../local-host";
 import { compareNames } from "../model";
-import { usePreferences, type Preferences } from "../preferences";
+import type { Preferences } from "../preferences";
 import { COLOR_OPTIONS, HOST_ICON_OPTIONS } from "./options";
 
 type HostOverride = SidebarPreferences["hostOverrides"][string];
 const NO_OVERRIDE: HostOverride = { color: "auto", icon: "auto" };
 
-/** Settings tab: a color and icon per configured host, this device's host first. */
-export function HostsSettings() {
-  const preferences = usePreferences();
+/** A color and icon per configured host, this device's host first. */
+export function HostsSection({ preferences }: { preferences: Preferences }) {
   const hosts = useHosts();
   const localHostId = useLocalHostId();
-  if (preferences.loading) return null;
   const ordered = [...hosts].sort(
     (a, b) =>
       Number(b.serverId === localHostId) - Number(a.serverId === localHostId) ||

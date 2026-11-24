@@ -8,22 +8,15 @@ import {
 } from "@getpaseo/plugin/client/ui";
 import type { ColorName } from "../../shared/preferences";
 import { compareNames } from "../model";
-import { usePreferences, type Preferences } from "../preferences";
-import { RuntimeProvider, useProjectDirectory } from "../runtime";
+import type { Preferences } from "../preferences";
+import { useProjectDirectory } from "../runtime";
 import { COLOR_OPTIONS } from "./options";
 
-/** Settings tab: a tag color per project. A project on several hosts is one entry. */
-export function ProjectsSettings() {
-  // Project view keys come from the hosts' project lists, which the runtime watches.
-  return (
-    <RuntimeProvider watchWorkspaces={false}>
-      <ProjectList />
-    </RuntimeProvider>
-  );
-}
-
-function ProjectList() {
-  const preferences = usePreferences();
+/**
+ * A tag color per project; a project on several hosts is one entry. Needs a RuntimeProvider
+ * above it for project view keys.
+ */
+export function ProjectsSection({ preferences }: { preferences: Preferences }) {
   const directory = useProjectDirectory();
   const refs = useProjects(
     useMemo(
@@ -42,7 +35,6 @@ function ProjectList() {
     }
     return [...seen];
   }, [refs, directory]);
-  if (preferences.loading) return null;
   return (
     <SettingsSection title="Project colors">
       <SettingsCard>

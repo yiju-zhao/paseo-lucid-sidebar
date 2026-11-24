@@ -1,7 +1,6 @@
 import type { PluginClientContext, PluginSidebarViewProps } from "@getpaseo/plugin/client";
-import { AppearanceSettings } from "./client/settings/appearance";
-import { HostsSettings } from "./client/settings/hosts";
-import { ProjectsSettings } from "./client/settings/projects";
+import { AboutSettings } from "./client/settings/about";
+import { PresentationSettings } from "./client/settings/presentation";
 import { WorkspaceSidebar } from "./client/sidebar";
 
 export default function contribute(client: PluginClientContext) {
@@ -11,28 +10,22 @@ export default function contribute(client: PluginClientContext) {
   if (settings) {
     cleanups.push(
       client.addSettingsScreen({
-        id: "appearance",
-        title: "Appearance",
-        icon: "Palette",
-        Component: AppearanceSettings,
+        id: "presentation",
+        title: "Sidebar presentation",
+        icon: "PanelLeft",
+        Component: PresentationSettings,
       }),
       client.addSettingsScreen({
-        id: "hosts",
-        title: "Hosts",
-        icon: "Server",
-        Component: HostsSettings,
-      }),
-      client.addSettingsScreen({
-        id: "projects",
-        title: "Projects",
-        icon: "Folder",
-        Component: ProjectsSettings,
+        id: "about",
+        title: "About",
+        icon: "Info",
+        Component: AboutSettings,
       }),
     );
   }
   const openSettings =
     settings && typeof client.openSettings === "function"
-      ? () => client.openSettings("appearance")
+      ? () => client.openSettings("presentation")
       : undefined;
   function Sidebar(props: PluginSidebarViewProps) {
     return <WorkspaceSidebar {...props} openSettings={openSettings} />;

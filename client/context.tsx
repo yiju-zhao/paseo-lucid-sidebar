@@ -69,6 +69,8 @@ export interface SidebarContextValue {
   metrics: Metrics;
   /** Opens the plugin's settings page; absent on apps without it. */
   openSettings?: () => void;
+  /** A preview: rows do not open, and no menus or action buttons show. Folding still works. */
+  readOnly: boolean;
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);

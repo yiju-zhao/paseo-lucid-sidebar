@@ -39,14 +39,20 @@ import { UiStateProvider, useExpanded, useMenu } from "./ui-state";
  */
 export function WorkspaceSidebar({
   openSettings,
+  readOnly = false,
   ...view
-}: PluginSidebarViewProps & { openSettings?: () => void }) {
+}: PluginSidebarViewProps & { openSettings?: () => void; readOnly?: boolean }) {
   const preferences = usePreferences();
   if (preferences.loading) return null;
   return (
     <RuntimeProvider watchWorkspaces={needsWorkspaceRuntime(preferences.values)}>
       <UiStateProvider>
-        <SidebarContent view={view} preferences={preferences} openSettings={openSettings} />
+        <SidebarContent
+          view={view}
+          preferences={preferences}
+          openSettings={openSettings}
+          readOnly={readOnly}
+        />
       </UiStateProvider>
     </RuntimeProvider>
   );
@@ -56,10 +62,12 @@ function SidebarContent({
   view,
   preferences,
   openSettings,
+  readOnly,
 }: {
   view: PluginSidebarViewProps;
   preferences: Preferences;
   openSettings?: () => void;
+  readOnly: boolean;
 }) {
   const values = preferences.values;
   const directory = useProjectDirectory();
@@ -97,8 +105,20 @@ function SidebarContent({
       colors,
       metrics,
       openSettings,
+      readOnly,
     }),
-    [view, palette, pointer, preferences, directory, hosts, colors, metrics, openSettings],
+    [
+      view,
+      palette,
+      pointer,
+      preferences,
+      directory,
+      hosts,
+      colors,
+      metrics,
+      openSettings,
+      readOnly,
+    ],
   );
 
   const activeKey = view.active.workspace?.key ?? null;
@@ -149,27 +169,29 @@ function SidebarContent({
           <SectionHeader
             title="Workspaces"
             actions={
-              <>
-                {disclosures.length > 0 ? (
+              readOnly ? null : (
+                <>
+                  {disclosures.length > 0 ? (
+                    <IconButton
+                      icon={anyOpen ? "ChevronsDownUp" : "ChevronsUpDown"}
+                      label={anyOpen ? "Collapse all" : "Expand all"}
+                      onPress={foldAll}
+                      size={28}
+                      iconSize={14}
+                      hoverFill={palette.hover}
+                    />
+                  ) : null}
                   <IconButton
-                    icon={anyOpen ? "ChevronsDownUp" : "ChevronsUpDown"}
-                    label={anyOpen ? "Collapse all" : "Expand all"}
-                    onPress={foldAll}
+                    icon="Settings2"
+                    label="Display preferences"
+                    onPress={display.toggle}
+                    active={display.open}
                     size={28}
                     iconSize={14}
                     hoverFill={palette.hover}
                   />
-                ) : null}
-                <IconButton
-                  icon="Settings2"
-                  label="Display preferences"
-                  onPress={display.toggle}
-                  active={display.open}
-                  size={28}
-                  iconSize={14}
-                  hoverFill={palette.hover}
-                />
-              </>
+                </>
+              )
             }
           />
         ) : null}

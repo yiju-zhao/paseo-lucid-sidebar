@@ -301,14 +301,6 @@ export function DisplayMenu({ data }: { data: Pick<SidebarData, "labels" | "proj
         </>
       ) : null}
       <MenuSeparator />
-      {multipleHosts ? (
-        <MenuItem
-          icon="Server"
-          label="Keep hosts together"
-          checked={values.clusterByHost}
-          onPress={() => set({ clusterByHost: !values.clusterByHost })}
-        />
-      ) : null}
       <MenuItem
         icon="EyeOff"
         label="Show background"

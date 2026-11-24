@@ -64,8 +64,8 @@ function SidebarContent({
 
   const palette = useMemo(() => makePalette(view.theme), [view.theme]);
   const hosts = useMemo(
-    () => makeHostDirectory(hostList, localHostId, palette.dark, data.multiHost),
-    [hostList, localHostId, palette.dark, data.multiHost],
+    () => makeHostDirectory(hostList, localHostId, palette.dark),
+    [hostList, localHostId, palette.dark],
   );
   const pointer = view.layout.platform === "web" && !view.layout.compact;
   const context = useMemo<SidebarContextValue>(
@@ -86,13 +86,13 @@ function SidebarContent({
   const state = useMemo<ListState>(
     () => ({
       // Headings only help when the view spans hosts; then every section gets them.
-      groupHosts: values.clusterByHost && data.multiHost,
+      groupHosts: values.rowItems.host && data.multiHost,
       compareHosts: hosts.compare,
       collapsed: new Set(values.collapsed),
       expanded,
       activeKey,
     }),
-    [values.clusterByHost, data.multiHost, values.collapsed, hosts, expanded, activeKey],
+    [values.rowItems.host, data.multiHost, values.collapsed, hosts, expanded, activeKey],
   );
   const projectMode = values.grouping === "project";
   const pinned = useMemo(() => buildPinned(data.pinned, state), [data.pinned, state]);

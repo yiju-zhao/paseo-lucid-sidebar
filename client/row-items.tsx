@@ -21,8 +21,6 @@ export interface ItemContext {
   viewKey: string;
   /** Under a project header, which already names the project. */
   underProject: boolean;
-  /** Under a host heading, which already names the host. */
-  underHost: boolean;
   sidebar: SidebarContextValue;
 }
 
@@ -32,7 +30,7 @@ interface RowItemDefinition {
   toggle?: { key: RowItem; label: string; icon: string; order: number };
   /** Reads pull request, checks or service data, which needs a workspace subscription. */
   runtime?: boolean;
-  /** How readily the item gives up width; the host shrinks first. */
+  /** How readily the item gives up width. */
   shrink: number;
   enabled(values: SidebarPreferences): boolean;
   render(context: ItemContext): ReactNode;
@@ -132,21 +130,10 @@ const ROW_ITEMS: readonly RowItemDefinition[] = [
   {
     id: "host",
     toggle: { key: "host", label: "Host", icon: "Server", order: 2 },
-    shrink: 100,
+    shrink: 0,
     enabled: rowItem("host"),
-    // Only when rows span hosts, and never for this device's host.
-    render: ({ workspace, underHost, sidebar: { hosts } }) => {
-      if (underHost || !hosts.multiple || hosts.isLocal(workspace.hostId)) return null;
-      const color = hosts.color(workspace.hostId).text;
-      return (
-        <>
-          <Icon name="Server" size={12} color={color} />
-          <MetaText color={color} bold>
-            {hosts.label(workspace.hostId)}
-          </MetaText>
-        </>
-      );
-    },
+    // Hosts show as headings over their rows (client/layout.ts), never on the row itself.
+    render: () => null,
   },
   {
     id: "changeRequest",

@@ -163,7 +163,6 @@ function Row({
             projectName={projectName}
             viewKey={viewKey}
             underProject={variant === "project"}
-            underHost={underHost}
           />
         </Pressable>
       </View>

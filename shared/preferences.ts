@@ -16,6 +16,7 @@ export type ChecksDisplay = (typeof CHECKS_DISPLAY)[number];
 const rowItems = z.object({
   project: z.boolean().default(true),
   branch: z.boolean().default(false),
+  /** Host headings: each host's projects and workspaces together under its name. */
   host: z.boolean().default(true),
   changeRequest: z.boolean().default(true),
   services: z.boolean().default(true),
@@ -33,8 +34,6 @@ const schema = z.object({
   // `prefault` parses the empty object, so the item defaults above apply.
   rowItems: rowItems.prefault({}),
   showBackground: z.boolean().default(false),
-  /** Inside each section, keep a host's workspaces together: local host first, then by name. */
-  clusterByHost: z.boolean().default(true),
   /** Server ids. Empty means every host. */
   hostFilter: z.array(z.string()).default([]),
   /** Project view keys. Empty means every project. */
@@ -52,7 +51,7 @@ const schema = z.object({
 export const sidebarSettings = defineSettings({
   id: "sidebar",
   scope: "device",
-  version: 3,
+  version: 4,
   migrate: (values, fromVersion) => {
     const stored = { ...(values as Record<string, unknown>) };
     // v2: the project item now leads the second line; turn it on once.
@@ -63,6 +62,13 @@ export const sidebarSettings = defineSettings({
     if (fromVersion < 3 && Array.isArray(stored.collapsed)) {
       const keys = (stored.collapsed as unknown[]).filter((key) => typeof key === "string");
       stored.collapsed = [...new Set(keys.map(migrateProjectKey))];
+    }
+    // v4: one Host switch replaces Keep hosts together and the row's host badge.
+    if (fromVersion < 4) {
+      const items = { ...(stored.rowItems as Record<string, unknown>) };
+      items.host = items.host !== false && stored.clusterByHost !== false;
+      stored.rowItems = items;
+      delete stored.clusterByHost;
     }
     return stored;
   },

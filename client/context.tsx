@@ -15,15 +15,12 @@ export interface HostDirectory {
   color(hostId: string): IdentityColor;
   /** Local host first, then by label. */
   compare: CompareHosts;
-  /** Visible workspaces span two or more hosts, so rows name their host. */
-  multiple: boolean;
 }
 
 export function makeHostDirectory(
   list: readonly PluginHostSummary[],
   localHostId: string | null,
   dark: boolean,
-  multiple: boolean,
 ): HostDirectory {
   const label = (hostId: string) => list.find((host) => host.serverId === hostId)?.label ?? hostId;
   const rank = (hostId: string) => (hostId === localHostId ? 0 : 1);
@@ -33,7 +30,6 @@ export function makeHostDirectory(
     isLocal: (hostId) => hostId === localHostId,
     color: (hostId) => identityColor(hostId, dark),
     compare: (a, b) => rank(a) - rank(b) || compareNames(label(a), label(b)) || a.localeCompare(b),
-    multiple,
   };
 }
 

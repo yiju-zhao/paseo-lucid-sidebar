@@ -49,7 +49,7 @@ function filterValue(selected: readonly string[], name?: (id: string) => string)
 }
 
 export function DisplayMenu({ data }: { data: Pick<SidebarData, "labels" | "projectOptions"> }) {
-  const { preferences, hosts, theme, colors } = useSidebar();
+  const { preferences, hosts, theme, colors, openSettings } = useSidebar();
   const close = useCloseMenu();
   const values = preferences.values;
   const [page, setPage] = useState<Page>("root");
@@ -306,6 +306,19 @@ export function DisplayMenu({ data }: { data: Pick<SidebarData, "labels" | "proj
         checked={values.showBackground}
         onPress={() => set({ showBackground: !values.showBackground })}
       />
+      {openSettings ? (
+        <>
+          <MenuSeparator />
+          <MenuItem
+            icon="SlidersHorizontal"
+            label="All settings…"
+            onPress={() => {
+              close();
+              openSettings();
+            }}
+          />
+        </>
+      ) : null}
       {preferences.error ? <MenuNote text={preferences.error} error /> : null}
     </MenuCard>
   );

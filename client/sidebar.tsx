@@ -37,13 +37,16 @@ import { UiStateProvider, useExpanded, useMenu } from "./ui-state";
  * The registered sidebar view: queries → list model → renderers. Nothing renders until the
  * stored preferences are read, so nothing can save over them.
  */
-export function WorkspaceSidebar(view: PluginSidebarViewProps) {
+export function WorkspaceSidebar({
+  openSettings,
+  ...view
+}: PluginSidebarViewProps & { openSettings?: () => void }) {
   const preferences = usePreferences();
   if (preferences.loading) return null;
   return (
     <RuntimeProvider watchWorkspaces={needsWorkspaceRuntime(preferences.values)}>
       <UiStateProvider>
-        <SidebarContent view={view} preferences={preferences} />
+        <SidebarContent view={view} preferences={preferences} openSettings={openSettings} />
       </UiStateProvider>
     </RuntimeProvider>
   );
@@ -52,9 +55,11 @@ export function WorkspaceSidebar(view: PluginSidebarViewProps) {
 function SidebarContent({
   view,
   preferences,
+  openSettings,
 }: {
   view: PluginSidebarViewProps;
   preferences: Preferences;
+  openSettings?: () => void;
 }) {
   const values = preferences.values;
   const directory = useProjectDirectory();
@@ -91,8 +96,9 @@ function SidebarContent({
       hosts,
       colors,
       metrics,
+      openSettings,
     }),
-    [view, palette, pointer, preferences, directory, hosts, colors, metrics],
+    [view, palette, pointer, preferences, directory, hosts, colors, metrics, openSettings],
   );
 
   const activeKey = view.active.workspace?.key ?? null;

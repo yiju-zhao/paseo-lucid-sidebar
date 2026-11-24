@@ -71,6 +71,8 @@ export interface SidebarContextValue {
   colors: Colors;
   /** Row and spacing sizes for the chosen density on this layout. */
   metrics: Metrics;
+  /** Opens the plugin's settings page; absent on apps without it. */
+  openSettings?: () => void;
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);

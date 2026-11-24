@@ -1,4 +1,5 @@
 import { useCallback, type ReactNode } from "react";
+import type { Guides } from "../shared/preferences";
 import { Pressable, Text, View } from "react-native";
 import { useProject, type ProjectRef, type WorkspaceRef } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/ui";
@@ -177,6 +178,8 @@ function DisclosureRow({
   );
 }
 
+const GUIDE_WIDTH: Record<Guides, number> = { off: 0, thin: 1, thick: 2 };
+
 /** Host heading metrics, shared by the heading and the guide line below its icon. */
 const HOST_HEADING = {
   section: { size: 13, lineHeight: 18, marginTop: 6, marginBottom: 2, paddingVertical: 4 },
@@ -209,7 +212,8 @@ function HostGroup({
   guideBottom?: number;
   children: ReactNode;
 }) {
-  const { theme, palette, pointer, hosts } = useSidebar();
+  const { theme, palette, pointer, hosts, preferences } = useSidebar();
+  const guideWidth = GUIDE_WIDTH[preferences.values.appearance.guides];
   const hover = useHover();
   const toggle = useCollapseToggle(collapseKey);
   const metrics = section ? HOST_HEADING.section : HOST_HEADING.inline;
@@ -281,18 +285,20 @@ function HostGroup({
       {collapsed ? null : (
         <>
           <View style={{ paddingLeft: guideX + 5 }}>{children}</View>
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              left: guideX - 0.5,
-              width: 1,
-              top: iconCentre + metrics.size / 2 + 3,
-              bottom: guideBottom,
-              borderRadius: 0.5,
-              backgroundColor: withAlpha(color, 0.45),
-            }}
-          />
+          {guideWidth > 0 ? (
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: guideX - guideWidth / 2,
+                width: guideWidth,
+                top: iconCentre + metrics.size / 2 + 3,
+                bottom: guideBottom,
+                borderRadius: guideWidth / 2,
+                backgroundColor: withAlpha(color, 0.45),
+              }}
+            />
+          ) : null}
         </>
       )}
     </View>

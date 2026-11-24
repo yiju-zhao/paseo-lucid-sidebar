@@ -1,5 +1,5 @@
 import type { PluginWorkspaceSnapshot, WorkspaceIndicator } from "@getpaseo/plugin";
-import type { SidebarPreferences, Sort, TitleSource } from "../shared/preferences";
+import type { SidebarPreferences, Sort, TimeFormat, TitleSource } from "../shared/preferences";
 
 /** Pure workspace rules: ordering, visibility and formatting. No React. */
 
@@ -154,21 +154,28 @@ export function formatAge(at: string | null, now: number): string | null {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
   const date = new Date(then);
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${months[date.getMonth()]} ${date.getDate()}`;
+  return `${MONTHS[date.getMonth()]} ${date.getDate()}`;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * The row's time: relative (`5m`, `3h`, `Nov 8`), or absolute in local time: `14:32` for the
+ * same calendar day, otherwise `Nov 8`.
+ */
+export function formatTime(at: string | null, now: number, format: TimeFormat): string | null {
+  if (format === "relative") return formatAge(at, now);
+  if (!at) return null;
+  const then = new Date(at);
+  if (Number.isNaN(then.getTime())) return null;
+  const today = new Date(now);
+  const sameDay =
+    then.getFullYear() === today.getFullYear() &&
+    then.getMonth() === today.getMonth() &&
+    then.getDate() === today.getDate();
+  if (!sameDay) return `${MONTHS[then.getMonth()]} ${then.getDate()}`;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(then.getHours())}:${pad(then.getMinutes())}`;
 }
 
 /** `950`, `1.2k`, `3m`: compact, one decimal at most. */

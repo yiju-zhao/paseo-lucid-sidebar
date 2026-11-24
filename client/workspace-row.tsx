@@ -6,7 +6,7 @@ import { useNow } from "./clock";
 import { useHover, useSidebar } from "./context";
 import { IconButton } from "./controls";
 import { StatusIndicator } from "./indicators";
-import { compactNumber, displayTitle, formatAge, type Workspace } from "./model";
+import { compactNumber, displayTitle, formatTime, type Workspace } from "./model";
 import { MetaRow } from "./row-items";
 import { ArchiveConfirm, errorText, WorkspaceMenu } from "./row-menu";
 import { useWorkspaceRuntime } from "./runtime";
@@ -257,7 +257,11 @@ function TrailingValue({ workspace }: { workspace: Workspace }) {
   const trailing = preferences.values.trailing;
   const text = { fontSize: 12, lineHeight: 20, height: 20 };
   if (trailing === "timestamp") {
-    const age = formatAge(workspace.statusEnteredAt, now);
+    const age = formatTime(
+      workspace.statusEnteredAt,
+      now,
+      preferences.values.appearance.timeFormat,
+    );
     return age ? (
       <Text style={{ ...text, color: palette.extraMuted, minWidth: 18 }}>{age}</Text>
     ) : null;

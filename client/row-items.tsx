@@ -2,10 +2,11 @@ import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { openExternalUrl } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/ui";
-import type { RowItem, SidebarPreferences } from "../shared/preferences";
+import type { RowItem, SidebarPreferences, TagStyle } from "../shared/preferences";
 import { useHover, useSidebar, type SidebarContextValue } from "./context";
 import { ChecksGlyph } from "./indicators";
 import { labelKey, normalizeBranch, type Workspace } from "./model";
+import type { IdentityColor } from "./palette";
 import type { PullRequestState, WorkspaceRuntime } from "./runtime";
 
 /**
@@ -62,30 +63,44 @@ function MetaText({
   );
 }
 
+/**
+ * A pill in an identity color. Solid: the fill with white text. Tinted: a faint fill with the
+ * color's text. Outline: a border and text in the color.
+ */
 function Chip({
   label,
-  background,
   color,
+  style,
   bold,
 }: {
   label: string;
-  background: string;
-  color: string;
+  color: IdentityColor;
+  style: TagStyle;
   bold?: boolean;
 }) {
+  const { palette } = useSidebar();
+  const outline = style === "outline";
   return (
     <View
       style={{
-        paddingHorizontal: 6,
+        paddingHorizontal: outline ? 5 : 6,
         borderRadius: 999,
-        backgroundColor: background,
+        borderWidth: outline ? 1 : 0,
+        borderColor: color.text,
+        backgroundColor:
+          style === "solid" ? color.fill : style === "tinted" ? color.tint : "transparent",
         flexShrink: 1,
         minWidth: 0,
       }}
     >
       <Text
         numberOfLines={1}
-        style={{ color, fontSize: 12, lineHeight: 16, fontWeight: bold ? "600" : "400" }}
+        style={{
+          color: style === "solid" ? palette.onIdentity : color.text,
+          fontSize: 12,
+          lineHeight: outline ? 14 : 16,
+          fontWeight: bold ? "600" : "400",
+        }}
       >
         {label}
       </Text>
@@ -104,8 +119,8 @@ const ROW_ITEMS: readonly RowItemDefinition[] = [
       underProject ? null : (
         <Chip
           label={projectName}
-          background={sidebar.colors.project(viewKey).fill}
-          color={sidebar.palette.onIdentity}
+          color={sidebar.colors.project(viewKey)}
+          style={sidebar.preferences.values.appearance.tagStyle}
           bold={sidebar.preferences.values.grouping === "project"}
         />
       ),
@@ -200,7 +215,10 @@ const ROW_ITEMS: readonly RowItemDefinition[] = [
         >
           {workspace.labels.map((label) => {
             const color = sidebar.colors.label(labelKey(label));
-            return <Chip key={label} label={label} background={color.tint} color={color.text} />;
+            // Labels stay tinted, so the project tag leads, unless every tag is an outline.
+            const style =
+              sidebar.preferences.values.appearance.tagStyle === "outline" ? "outline" : "tinted";
+            return <Chip key={label} label={label} color={color} style={style} />;
           })}
         </View>
       ),

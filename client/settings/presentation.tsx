@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
+import { Icon } from "@getpaseo/plugin/client/ui";
+import type { Grouping } from "../../shared/preferences";
 import { makePalette } from "../palette";
 import { usePreferences } from "../preferences";
 import { RuntimeProvider } from "../runtime";
@@ -35,8 +37,9 @@ export function PresentationSettings({ theme, layout }: PluginSurfaceProps) {
     <Preview
       theme={theme}
       layout={layout}
-      height={side ? 560 : 420}
+      height={side ? 760 : 560}
       width={side ? PREVIEW_WIDTH : undefined}
+      initialGrouping={preferences.values.grouping}
     />
   );
   const settings = (
@@ -59,18 +62,69 @@ export function PresentationSettings({ theme, layout }: PluginSurfaceProps) {
   );
 }
 
+const MODES: { value: Grouping; label: string; icon: string }[] = [
+  { value: "project", label: "Project", icon: "Folder" },
+  { value: "status", label: "Status", icon: "CircleDashed" },
+];
+
+/** The user's sidebar, read-only, with a Project / Status switch that only affects the preview. */
 function Preview({
   theme,
   layout,
   height,
   width,
-}: Pick<PluginSurfaceProps, "theme" | "layout"> & { height: number; width?: number }) {
+  initialGrouping,
+}: Pick<PluginSurfaceProps, "theme" | "layout"> & {
+  height: number;
+  width?: number;
+  initialGrouping: Grouping;
+}) {
   const palette = makePalette(theme);
+  const [grouping, setGrouping] = useState<Grouping>(initialGrouping);
   return (
-    <View style={{ width: width ?? "100%", gap: 6 }}>
-      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>
-        Preview of your sidebar
-      </Text>
+    <View style={{ width: width ?? "100%", gap: 8 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>
+          Preview of your sidebar
+        </Text>
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel="Preview grouping"
+          style={{
+            flexDirection: "row",
+            padding: 2,
+            gap: 2,
+            borderRadius: 8,
+            backgroundColor: theme.colors.surface2,
+          }}
+        >
+          {MODES.map((mode) => {
+            const selected = grouping === mode.value;
+            const color = selected ? theme.colors.foreground : theme.colors.foregroundMuted;
+            return (
+              <Pressable
+                key={mode.value}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`Preview ${mode.label.toLowerCase()} grouping`}
+                onPress={() => setGrouping(mode.value)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  paddingHorizontal: 8,
+                  paddingVertical: layout.compact ? 6 : 3,
+                  borderRadius: 6,
+                  backgroundColor: selected ? theme.colors.surface0 : "transparent",
+                }}
+              >
+                <Icon name={mode.icon} size={12} color={color} />
+                <Text style={{ color, fontSize: 12 }}>{mode.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
       <View
         style={{
           height,
@@ -88,6 +142,7 @@ function Preview({
           navigation={PREVIEW_NAVIGATION}
           dismiss={noop}
           readOnly
+          grouping={grouping}
         />
       </View>
     </View>

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type { Grouping } from "../shared/preferences";
 import { View } from "react-native";
 import { useHosts, type PluginSidebarViewProps } from "@getpaseo/plugin/client";
 import { ScrollView } from "@getpaseo/plugin/client/ui";
@@ -40,9 +41,19 @@ import { UiStateProvider, useExpanded, useMenu } from "./ui-state";
 export function WorkspaceSidebar({
   openSettings,
   readOnly = false,
+  grouping,
   ...view
-}: PluginSidebarViewProps & { openSettings?: () => void; readOnly?: boolean }) {
-  const preferences = usePreferences();
+}: PluginSidebarViewProps & {
+  openSettings?: () => void;
+  readOnly?: boolean;
+  /** Shows this grouping instead of the stored one, without saving it (the settings preview). */
+  grouping?: Grouping;
+}) {
+  const stored = usePreferences();
+  const preferences = useMemo(
+    () => (grouping ? { ...stored, values: { ...stored.values, grouping } } : stored),
+    [stored, grouping],
+  );
   if (preferences.loading) return null;
   return (
     <RuntimeProvider watchWorkspaces={needsWorkspaceRuntime(preferences.values)}>

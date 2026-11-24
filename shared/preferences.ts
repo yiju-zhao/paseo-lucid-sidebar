@@ -26,7 +26,35 @@ export const GUIDES = ["off", "thin", "thick"] as const;
 export const TIME_FORMATS = ["relative", "absolute"] as const;
 export const HOST_ICONS = ["auto", "laptop", "desktop", "server", "gpu", "cloud"] as const;
 
+/** Colors a project can be given: the ten automatic ones and six more. */
+export const PROJECT_COLOR_NAMES = [
+  ...COLOR_NAMES,
+  "rose",
+  "cyan",
+  "lime",
+  "fuchsia",
+  "slate",
+  "brown",
+] as const;
+/**
+ * Colors a host can be given: a light, bright set of its own, read as heading text and guide
+ * lines, and never one of the project colors.
+ */
+export const HOST_COLOR_NAMES = [
+  "coral",
+  "gold",
+  "mint",
+  "aqua",
+  "azure",
+  "lavender",
+  "peach",
+  "silver",
+] as const;
+
+/** An automatic color: the built-in identity palette, varied by preset. */
 export type ColorName = (typeof COLOR_NAMES)[number];
+export type ProjectColor = (typeof PROJECT_COLOR_NAMES)[number];
+export type HostColor = (typeof HOST_COLOR_NAMES)[number];
 export type Preset = (typeof PRESETS)[number];
 export type Density = (typeof DENSITIES)[number];
 export type TagStyle = (typeof TAG_STYLES)[number];
@@ -68,10 +96,9 @@ const APPEARANCE_DEFAULTS: z.output<typeof appearance> = {
   timeFormat: "relative",
 };
 
+/** Paseo renames hosts itself, so a host keeps its own name; a 0.4.0 `name` is stripped. */
 const hostOverride = z.object({
-  /** Shown instead of the host's label; blank keeps the label. */
-  name: z.string().catch(""),
-  color: z.enum([...COLOR_NAMES, "auto"]).catch("auto"),
+  color: z.enum([...HOST_COLOR_NAMES, "auto"]).catch("auto"),
   icon: z.enum(HOST_ICONS).catch("auto"),
 });
 
@@ -96,9 +123,9 @@ const projectColors = z
     (entries) =>
       Object.fromEntries(
         Object.entries(entries).filter(([, color]) =>
-          (COLOR_NAMES as readonly unknown[]).includes(color),
+          (PROJECT_COLOR_NAMES as readonly unknown[]).includes(color),
         ),
-      ) as Record<string, ColorName>,
+      ) as Record<string, ProjectColor>,
   );
 
 const schema = z.object({
@@ -120,7 +147,7 @@ const schema = z.object({
   collapsed: z.array(z.string()).default([]),
   // Missing or not an object (null, a newer shape): fall back rather than invalidate the document.
   appearance: appearance.default(APPEARANCE_DEFAULTS).catch(APPEARANCE_DEFAULTS),
-  /** Per server id: display name, color and icon. */
+  /** Per server id: color and icon. */
   hostOverrides: hostOverrides.default({}),
   /** Per project view key: tag and tile color. */
   projectColors: projectColors.default({}),

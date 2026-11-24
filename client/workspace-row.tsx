@@ -50,7 +50,8 @@ function Row({
   variant: RowVariant;
   underHost: boolean;
 }) {
-  const { view, theme, palette, touch, pointer, preferences, directory, metrics } = useSidebar();
+  const { view, theme, palette, touch, pointer, preferences, directory, metrics, readOnly } =
+    useSidebar();
   const paseo = usePaseo();
   const toast = useToast();
   const hover = useHover();
@@ -101,9 +102,9 @@ function Row({
           accessibilityLabel={`${workspace.name}, ${workspace.indicatorLabel ?? ""}`}
           accessibilityState={{ selected, disabled: archiving }}
           disabled={archiving}
-          onPress={open}
+          onPress={readOnly ? undefined : open}
           // The built-in sidebar has no long press on desktop; on touch it opens the menu.
-          onLongPress={touch ? menu.toggle : undefined}
+          onLongPress={touch && !readOnly ? menu.toggle : undefined}
           onPressIn={() => setPressed(true)}
           onPressOut={() => setPressed(false)}
           unstable_pressDelay={touch ? 130 : undefined}
@@ -152,7 +153,7 @@ function Row({
             )}
             <Trailing
               workspace={workspace}
-              showActions={hovered && !archiving}
+              showActions={hovered && !archiving && !readOnly}
               menuOpen={menu.open}
               backdrop={backdrop}
               onArchive={requestArchive}
@@ -201,10 +202,10 @@ function Trailing({
   onArchive: () => void;
   onMenu: () => void;
 }) {
-  const { touch } = useSidebar();
+  const { touch, readOnly } = useSidebar();
   const more = `More actions for ${workspace.name}`;
 
-  if (touch)
+  if (touch && !readOnly)
     return (
       <View style={{ minHeight: 20, minWidth: 18, alignItems: "flex-end" }}>
         <IconButton

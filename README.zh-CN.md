@@ -8,7 +8,7 @@
 - 同一项目在多台 host 上时，会分别出现在每台 host 下，只包含该 host 的工作区；没有工作区的项目自动隐藏
 - 每行都有项目标签，颜色与项目图标相同
 - 一个按钮即可折叠或展开所有 host、项目和状态组
-- 设置页可调整配色预设、密度、标签样式、引导线、时间格式，以及每台 host 和每个项目的名称、颜色和图标
+- 设置页可调整配色预设、密度、标签样式、引导线、时间格式，以及每台 host 和每个项目的颜色，并实时预览你的侧栏
 - 内置列表的全部内容：置顶工作区、按项目或状态分组、状态指示、改动行数、pull request、检查、服务和标签，以及相同的显示菜单
 
 <p>
@@ -82,7 +82,7 @@ Paseo 会自己编译 TypeScript，不需要构建步骤。客户端代码只能
 | `client/runtime.tsx` | pull request、检查、服务和项目数据，每台 host 一个监听 |
 | `client/preferences.ts`、`client/save-queue.ts` | 偏好的乐观更新和带版本校验的保存 |
 | `client/colors.ts`、`client/density.ts` | 配色预设和自定义颜色；各密度的尺寸 |
-| `client/settings/` | 设置页：Appearance、Hosts、Projects 三个标签页 |
+| `client/settings/` | 设置页：Sidebar presentation（选项旁边实时预览）和 About |
 | `client/keys.ts` | 所有折叠状态的存储格式 |
 | `client/model.ts`、`client/palette.ts` | 排序和筛选规则；颜色 |
 | `tests/` | 用 tsx 运行的 `node:test` 测试 |

@@ -413,7 +413,7 @@ function ProjectBlockView({
   block: ProjectBlock<ProjectRef, WorkspaceRef>;
   underHost: boolean;
 }) {
-  const { view, palette } = useSidebar();
+  const { view, palette, readOnly } = useSidebar();
   const name = useProject(block.projects[0], (project) => project.displayName) ?? "";
   // New workspaces start on the active workspace's host when the project lives there.
   const activeHost = view.active.workspace?.hostId;
@@ -440,14 +440,16 @@ function ProjectBlockView({
           />
         }
         actions={
-          <IconButton
-            icon="Plus"
-            label={`New workspace in ${name}`}
-            onPress={newWorkspace}
-            size={24}
-            iconSize={15}
-            hoverFill={palette.hover}
-          />
+          readOnly ? undefined : (
+            <IconButton
+              icon="Plus"
+              label={`New workspace in ${name}`}
+              onPress={newWorkspace}
+              size={24}
+              iconSize={15}
+              hoverFill={palette.hover}
+            />
+          )
         }
       />
       {block.collapsed ? null : (

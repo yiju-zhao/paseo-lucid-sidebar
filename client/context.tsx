@@ -12,7 +12,6 @@ import type { ProjectDirectory } from "./runtime";
 /** Everything known about connected hosts, in one place. */
 export interface HostDirectory {
   list: readonly PluginHostSummary[];
-  /** The custom display name, else the host's label. */
   label(hostId: string): string;
   /** The daemon on this device. */
   isLocal(hostId: string): boolean;
@@ -31,27 +30,26 @@ const HOST_ICON: Record<Exclude<HostIcon, "auto">, string> = {
   cloud: "Cloud",
 };
 
+/** Lucide name for a host icon choice: auto is a monitor for this device, a server elsewhere. */
+export function hostIconName(icon: HostIcon, local: boolean): string {
+  if (icon !== "auto") return HOST_ICON[icon];
+  return local ? "Monitor" : "Server";
+}
+
 export function makeHostDirectory(
   list: readonly PluginHostSummary[],
   localHostId: string | null,
   overrides: SidebarPreferences["hostOverrides"],
   colors: Colors,
 ): HostDirectory {
-  const label = (hostId: string) =>
-    overrides[hostId]?.name.trim() ||
-    list.find((host) => host.serverId === hostId)?.label ||
-    hostId;
+  const label = (hostId: string) => list.find((host) => host.serverId === hostId)?.label ?? hostId;
   const rank = (hostId: string) => (hostId === localHostId ? 0 : 1);
   return {
     list,
     label,
     isLocal: (hostId) => hostId === localHostId,
     color: (hostId) => colors.host(hostId),
-    icon: (hostId) => {
-      const icon = overrides[hostId]?.icon ?? "auto";
-      if (icon !== "auto") return HOST_ICON[icon];
-      return hostId === localHostId ? "Monitor" : "Server";
-    },
+    icon: (hostId) => hostIconName(overrides[hostId]?.icon ?? "auto", hostId === localHostId),
     compare: (a, b) => rank(a) - rank(b) || compareNames(label(a), label(b)) || a.localeCompare(b),
   };
 }
@@ -73,6 +71,8 @@ export interface SidebarContextValue {
   metrics: Metrics;
   /** Opens the plugin's settings page; absent on apps without it. */
   openSettings?: () => void;
+  /** A preview: rows do not open, and no menus or action buttons show. Folding still works. */
+  readOnly: boolean;
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);

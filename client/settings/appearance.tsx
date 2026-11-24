@@ -1,6 +1,6 @@
 import { SettingsCard, SettingsSection, SettingsSelect } from "@getpaseo/plugin/client/ui";
 import type { SidebarPreferences } from "../../shared/preferences";
-import { usePreferences } from "../preferences";
+import type { Preferences } from "../preferences";
 import {
   DENSITY_OPTIONS,
   GUIDE_OPTIONS,
@@ -11,10 +11,9 @@ import {
 
 type Appearance = SidebarPreferences["appearance"];
 
-/** Settings tab: how the sidebar looks. */
-export function AppearanceSettings() {
-  const { values, update, loading } = usePreferences();
-  if (loading) return null;
+/** How the sidebar looks. */
+export function AppearanceSection({ preferences }: { preferences: Preferences }) {
+  const { values, update } = preferences;
   const appearance = values.appearance;
   const set =
     <Key extends keyof Appearance>(key: Key) =>
@@ -25,7 +24,7 @@ export function AppearanceSettings() {
       <SettingsCard>
         <SettingsSelect
           label="Color preset"
-          hint="Colors for hosts and projects that have no color of their own."
+          hint="Colors for projects and labels that have no color of their own. Hosts keep their own colors."
           value={appearance.preset}
           options={PRESET_OPTIONS}
           onValueChange={set("preset")}

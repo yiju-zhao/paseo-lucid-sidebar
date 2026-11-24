@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DEFAULT_PREFERENCES, sidebarSettings } from "../shared/preferences";
+import {
+  DEFAULT_PREFERENCES,
+  HOST_COLOR_NAMES,
+  PROJECT_COLOR_NAMES,
+  sidebarSettings,
+} from "../shared/preferences";
 
 const migrate = (values: unknown, fromVersion: number) =>
   sidebarSettings.schema.parse(sidebarSettings.migrate?.(values, fromVersion));
@@ -61,7 +66,7 @@ describe("appearance settings (v5)", () => {
     });
     assert.equal(next.appearance.preset, "default");
     assert.equal(next.appearance.density, "compact");
-    assert.deepEqual(next.hostOverrides.srv_a, { name: "Mini", color: "auto", icon: "auto" });
+    assert.deepEqual(next.hostOverrides.srv_a, { color: "auto", icon: "auto" });
     assert.deepEqual(next.projectColors, { ok: "teal" });
   });
 });
@@ -69,9 +74,9 @@ describe("appearance settings (v5)", () => {
 describe("damaged settings", () => {
   it("drops only the bad host entry and keeps the others", () => {
     const next = sidebarSettings.schema.parse({
-      hostOverrides: { a: { name: "Mini", color: "red", icon: "gpu" }, b: null },
+      hostOverrides: { a: { name: "Mini", color: "coral", icon: "gpu" }, b: null },
     });
-    assert.deepEqual(next.hostOverrides, { a: { name: "Mini", color: "red", icon: "gpu" } });
+    assert.deepEqual(next.hostOverrides, { a: { color: "coral", icon: "gpu" } });
   });
 
   it("falls back to default appearance instead of invalidating the document", () => {
@@ -79,5 +84,26 @@ describe("damaged settings", () => {
     assert.ok(parsed.success);
     assert.equal(parsed.data.grouping, "status");
     assert.equal(parsed.data.appearance.density, "standard");
+  });
+});
+
+describe("color choices", () => {
+  it("offers hosts eight colors of their own", () => {
+    assert.equal(HOST_COLOR_NAMES.length, 8);
+    assert.equal(PROJECT_COLOR_NAMES.length, 16);
+  });
+
+  it("turns a host color outside the eight back to auto, keeping its icon", () => {
+    const next = sidebarSettings.schema.parse({
+      hostOverrides: { a: { color: "teal", icon: "gpu" } },
+    });
+    assert.deepEqual(next.hostOverrides.a, { color: "auto", icon: "gpu" });
+  });
+
+  it("keeps a new project color and drops an unknown one", () => {
+    const next = sidebarSettings.schema.parse({
+      projectColors: { web: "cyan", api: "magenta" },
+    });
+    assert.deepEqual(next.projectColors, { web: "cyan" });
   });
 });

@@ -174,7 +174,7 @@ export function DisplayMenu({ data }: { data: Pick<SidebarData, "labels" | "proj
           {hosts.list.map((host) => (
             <MenuItem
               key={host.serverId}
-              label={host.label}
+              label={hosts.label(host.serverId)}
               checked={values.hostFilter.includes(host.serverId)}
               leading={
                 <MenuDot

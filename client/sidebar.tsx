@@ -71,8 +71,8 @@ function SidebarContent({
     [appearance, hostOverrides, projectColors, palette.dark],
   );
   const hosts = useMemo(
-    () => makeHostDirectory(hostList, localHostId, colors),
-    [hostList, localHostId, colors],
+    () => makeHostDirectory(hostList, localHostId, hostOverrides, colors),
+    [hostList, localHostId, hostOverrides, colors],
   );
   const pointer = view.layout.platform === "web" && !view.layout.compact;
   const metrics = useMemo(

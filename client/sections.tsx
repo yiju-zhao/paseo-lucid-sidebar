@@ -246,11 +246,7 @@ function HostGroup({
           backgroundColor: hover.hovered ? palette.hover : "transparent",
         })}
       >
-        <Icon
-          name={hosts.isLocal(hostId) ? "Monitor" : "Server"}
-          size={metrics.size}
-          color={color}
-        />
+        <Icon name={hosts.icon(hostId)} size={metrics.size} color={color} />
         <Text
           numberOfLines={1}
           style={{

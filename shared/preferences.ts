@@ -60,12 +60,33 @@ const appearance = z.object({
   timeFormat: z.enum(TIME_FORMATS).catch("relative"),
 });
 
+const APPEARANCE_DEFAULTS: z.output<typeof appearance> = {
+  preset: "default",
+  density: "standard",
+  tagStyle: "solid",
+  guides: "thin",
+  timeFormat: "relative",
+};
+
 const hostOverride = z.object({
   /** Shown instead of the host's label; blank keeps the label. */
   name: z.string().catch(""),
   color: z.enum([...COLOR_NAMES, "auto"]).catch("auto"),
   icon: z.enum(HOST_ICONS).catch("auto"),
 });
+
+/** Server id to override; an entry that is not an override is dropped, not the whole map. */
+const hostOverrides = z
+  .record(z.string(), z.unknown())
+  .catch({})
+  .transform((entries) => {
+    const kept: Record<string, z.output<typeof hostOverride>> = {};
+    for (const [hostId, value] of Object.entries(entries)) {
+      const parsed = hostOverride.safeParse(value);
+      if (parsed.success) kept[hostId] = parsed.data;
+    }
+    return kept;
+  });
 
 /** View key to color; entries with an unknown color are dropped. */
 const projectColors = z
@@ -97,15 +118,10 @@ const schema = z.object({
   labelFilter: z.array(z.string()).default([]),
   /** Collapse keys; client/keys.ts owns their format. */
   collapsed: z.array(z.string()).default([]),
-  appearance: appearance.default({
-    preset: "default",
-    density: "standard",
-    tagStyle: "solid",
-    guides: "thin",
-    timeFormat: "relative",
-  }),
+  // Missing or not an object (null, a newer shape): fall back rather than invalidate the document.
+  appearance: appearance.default(APPEARANCE_DEFAULTS).catch(APPEARANCE_DEFAULTS),
   /** Per server id: display name, color and icon. */
-  hostOverrides: z.record(z.string(), hostOverride).catch({}).default({}),
+  hostOverrides: hostOverrides.default({}),
   /** Per project view key: tag and tile color. */
   projectColors: projectColors.default({}),
 });

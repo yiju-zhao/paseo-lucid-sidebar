@@ -65,3 +65,19 @@ describe("appearance settings (v5)", () => {
     assert.deepEqual(next.projectColors, { ok: "teal" });
   });
 });
+
+describe("damaged settings", () => {
+  it("drops only the bad host entry and keeps the others", () => {
+    const next = sidebarSettings.schema.parse({
+      hostOverrides: { a: { name: "Mini", color: "red", icon: "gpu" }, b: null },
+    });
+    assert.deepEqual(next.hostOverrides, { a: { name: "Mini", color: "red", icon: "gpu" } });
+  });
+
+  it("falls back to default appearance instead of invalidating the document", () => {
+    const parsed = sidebarSettings.schema.safeParse({ appearance: null, grouping: "status" });
+    assert.ok(parsed.success);
+    assert.equal(parsed.data.grouping, "status");
+    assert.equal(parsed.data.appearance.density, "standard");
+  });
+});

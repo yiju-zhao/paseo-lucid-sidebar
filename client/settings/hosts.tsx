@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { useHosts, type PluginHostSummary } from "@getpaseo/plugin/client";
 import {
   SettingsCard,
@@ -70,8 +69,9 @@ function HostCard({ host, preferences }: { host: PluginHostSummary; preferences:
 }
 
 /**
- * The display name. The input reports only text changes, so it saves once typing pauses, and
- * at once when the page closes.
+ * The display name. The input reports only text changes, so every change saves at once: the
+ * save queue folds changes made during a save into the next one, and nothing waits on a timer
+ * that leaving the page would cancel.
  */
 function NameInput({
   initial,
@@ -82,28 +82,13 @@ function NameInput({
   placeholder: string;
   onSave: (name: string) => void;
 }) {
-  const pending = useRef<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const save = useRef(onSave);
-  save.current = onSave;
-  const flush = () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-    if (pending.current !== null) save.current(pending.current.trim());
-    pending.current = null;
-  };
-  useEffect(() => flush, []);
   return (
     <SettingsInput
       label="Display name"
       hint="Shown in host headings and filters. Leave empty to use the host's own name."
       initialValue={initial}
       placeholder={placeholder}
-      onChangeText={(text) => {
-        pending.current = text;
-        if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(flush, 400);
-      }}
+      onChangeText={(text) => onSave(text.trim())}
     />
   );
 }

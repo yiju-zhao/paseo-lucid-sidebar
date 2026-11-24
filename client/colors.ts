@@ -37,27 +37,27 @@ export const PALETTES: Record<Preset, Record<ColorName, Entry>> = {
     blue: entry("#5179b0", "#7ba1d5", "#39649e"),
   },
   soft: {
-    violet: entry("#8a82a6", "#b7aed6", "#64598f"),
-    sky: entry("#6b8fa6", "#a3c3d8", "#4d6f85"),
-    emerald: entry("#6a9184", "#a3c9bb", "#4c6e62"),
-    orange: entry("#a98a6f", "#d6b79b", "#7d624b"),
-    pink: entry("#a87f91", "#d6adbf", "#80596a"),
-    indigo: entry("#8186b0", "#b3b7db", "#5c618f"),
-    teal: entry("#6a9292", "#a3caca", "#4b6d6d"),
-    red: entry("#a88584", "#d6b0ae", "#7f5a59"),
-    amber: entry("#9d9070", "#cfc39f", "#6f6447"),
-    blue: entry("#7a8fae", "#adc0dc", "#566a8a"),
+    violet: entry("#797292", "#b7aed6", "#64598f"),
+    sky: entry("#5b7a8d", "#a3c3d8", "#4d6f85"),
+    emerald: entry("#5b7d72", "#a3c9bb", "#4c6e62"),
+    orange: entry("#8b715b", "#d6b79b", "#7d624b"),
+    pink: entry("#8f6c7b", "#d6adbf", "#80596a"),
+    indigo: entry("#6f7397", "#b3b7db", "#5c618f"),
+    teal: entry("#5a7c7c", "#a3caca", "#4b6d6d"),
+    red: entry("#8b6e6e", "#d6b0ae", "#7f5a59"),
+    amber: entry("#7f755b", "#cfc39f", "#6f6447"),
+    blue: entry("#667892", "#adc0dc", "#566a8a"),
   },
   vivid: {
     violet: entry("#7c4dff", "#b39dff", "#5b2fd6"),
-    sky: entry("#0a84d6", "#5cb8f5", "#0565a6"),
-    emerald: entry("#12a36b", "#4cd69c", "#0a7a4f"),
-    orange: entry("#e0701a", "#ffa45c", "#b05410"),
-    pink: entry("#e0457f", "#ff85b0", "#b02a5e"),
+    sky: entry("#0979c5", "#5cb8f5", "#0565a6"),
+    emerald: entry("#0f8759", "#4cd69c", "#0a7a4f"),
+    orange: entry("#ba5d16", "#ffa45c", "#b05410"),
+    pink: entry("#ce3f75", "#ff85b0", "#b02a5e"),
     indigo: entry("#4c5fe0", "#8d9bff", "#3343b8"),
-    teal: entry("#0f9e9e", "#4fd4d4", "#087676"),
-    red: entry("#e0443c", "#ff8078", "#b32a24"),
-    amber: entry("#c99a06", "#f2c94c", "#8f6d00"),
+    teal: entry("#0c8383", "#4fd4d4", "#087676"),
+    red: entry("#d54139", "#ff8078", "#b32a24"),
+    amber: entry("#937004", "#f2c94c", "#8f6d00"),
     blue: entry("#2f6fe0", "#73a3ff", "#1f52b3"),
   },
   // Grays only, a step apart, so hosts and projects stay distinguishable without hue.
@@ -98,7 +98,10 @@ export interface Colors {
   named(name: ColorName): IdentityColor;
 }
 
-/** Colors for the current preferences: a chosen host or project color wins over the preset's. */
+/**
+ * Colors for the current preferences. Presets restyle automatic colors only: a color the user
+ * chose for a host or project keeps its own hue, from the Default palette, under every preset.
+ */
 export function makeColors(
   values: Pick<SidebarPreferences, "appearance" | "hostOverrides" | "projectColors">,
   dark: boolean,
@@ -109,9 +112,14 @@ export function makeColors(
     named,
     host: (hostId) => {
       const chosen = values.hostOverrides[hostId]?.color;
-      return named(chosen && chosen !== "auto" ? chosen : autoColorName(hostId));
+      return chosen && chosen !== "auto"
+        ? colorFor(chosen, "default", dark)
+        : named(autoColorName(hostId));
     },
-    project: (viewKey) => named(values.projectColors[viewKey] ?? autoColorName(viewKey)),
+    project: (viewKey) => {
+      const chosen = values.projectColors[viewKey];
+      return chosen ? colorFor(chosen, "default", dark) : named(autoColorName(viewKey));
+    },
     label: (labelKey) => named(autoColorName(labelKey)),
   };
 }

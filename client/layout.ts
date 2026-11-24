@@ -38,10 +38,10 @@ export interface ListState {
   activeKey: string | null;
 }
 
-/** Space below an open project block. */
-export const PROJECT_SPACING = 12;
+/** Space below an open project block. Tighter than the built-in 12, so blocks read as a list. */
+export const PROJECT_SPACING = 6;
 /** Space below a project header, which is all a folded block has. */
-export const HEADER_MARGIN = 4;
+export const HEADER_MARGIN = 2;
 
 // Row lists ----------------------------------------------------------------------------------
 

@@ -103,9 +103,12 @@ function DisclosureRow({
   collapseKey,
   collapsed,
   actions,
+  compact,
 }: {
   label: string;
   bold?: boolean;
+  /** Project headers: a shorter row with less space below, on pointer layouts. */
+  compact?: boolean;
   leading: ReactNode;
   collapseKey: string;
   collapsed: boolean;
@@ -124,11 +127,11 @@ function DisclosureRow({
         accessibilityState={{ expanded: !collapsed }}
         onPress={toggle}
         style={({ pressed }) => ({
-          minHeight: touch ? 44 : 36,
-          paddingVertical: 8,
+          minHeight: touch ? 44 : compact ? 30 : 36,
+          paddingVertical: compact && !touch ? 5 : 8,
           paddingHorizontal: 8,
           borderRadius: 8,
-          marginBottom: HEADER_MARGIN,
+          marginBottom: compact ? HEADER_MARGIN : 4,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
@@ -429,6 +432,7 @@ function ProjectBlockView({
       <DisclosureRow
         label={name}
         bold
+        compact
         collapseKey={block.collapseKey}
         collapsed={block.collapsed}
         leading={

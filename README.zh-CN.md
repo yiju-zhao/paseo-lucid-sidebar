@@ -33,8 +33,8 @@ paseo plugin add yiju-zhao/lucid-sidebar
 或从 npm 或 GitHub 安装，并固定到某个发布版本：
 
 ```bash
-paseo plugin add npm:paseo-lucid-sidebar@0.3.0
-paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.3.0
+paseo plugin add npm:paseo-lucid-sidebar@0.3.1
+paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.3.1
 ```
 
 然后在 设置 > 侧边栏 > 侧边栏视图 中选择 **Lucid sidebar**。安装后 Paseo 不会自动切换视图，重新选择默认视图即可恢复内置列表。

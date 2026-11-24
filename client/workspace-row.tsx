@@ -110,7 +110,8 @@ function Row({
           style={{
             minHeight: touch ? 44 : 36,
             marginBottom: 2,
-            paddingVertical: 8,
+            // Project rows sit under a header already; keep them tighter on pointer layouts.
+            paddingVertical: variant === "project" && !touch ? 6 : 8,
             paddingLeft: variant === "status" && !underHost ? 16 : 8,
             paddingRight: 12,
             borderRadius: 8,

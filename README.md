@@ -8,7 +8,7 @@ A [Paseo](https://paseo.sh) sidebar view for people who run Paseo on more than o
 - A project on several hosts appears under each of them, with only that host's workspaces; projects with no workspaces stay hidden
 - Project tags on every row, in the same color as the project tile
 - Fold or unfold every host, project and status group with one button
-- A settings page for color presets, density, tag style, guide lines, time format, and per-host and per-project colors, with a live preview of your sidebar
+- A settings page for color presets, density, tag style, guide lines, time format, per-host colors and icons and per-project colors, with a live preview of your sidebar
 - Everything the built-in list shows: pinned workspaces, project or status grouping, status indicators, diff stats, pull requests, checks, services and labels, with the same display menu
 
 <p>

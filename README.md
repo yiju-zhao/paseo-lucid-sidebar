@@ -30,10 +30,11 @@ Install from the [Paseo plugin registry](https://paseo.sh/plugins):
 paseo plugin add yiju-zhao/lucid-sidebar
 ```
 
-Or straight from GitHub, pinned to a release:
+Or from npm or GitHub, pinned to a release:
 
 ```bash
-paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.2.0
+paseo plugin add npm:paseo-lucid-sidebar@0.3.0
+paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.3.0
 ```
 
 Then choose **Lucid sidebar** under Settings > Sidebar > Sidebar view. Paseo does not switch views on install, and choosing the default view again restores the built-in list.

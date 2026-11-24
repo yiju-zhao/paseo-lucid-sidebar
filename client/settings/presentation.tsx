@@ -8,8 +8,7 @@ import { usePreferences } from "../preferences";
 import { RuntimeProvider } from "../runtime";
 import { WorkspaceSidebar } from "../sidebar";
 import { AppearanceSection } from "./appearance";
-import { HostsSection } from "./hosts";
-import { ProjectsSection } from "./projects";
+import { PaletteSection } from "./palette";
 
 /** Settings beside the preview from this width; below it the preview sits on top. */
 const SIDE_BY_SIDE = 640;
@@ -45,9 +44,12 @@ export function PresentationSettings({ theme, layout }: PluginSurfaceProps) {
   const settings = (
     <View style={{ flex: side ? 1 : undefined, minWidth: 0, gap: 16 }}>
       <AppearanceSection preferences={preferences} />
-      <HostsSection preferences={preferences} />
       <RuntimeProvider watchWorkspaces={false}>
-        <ProjectsSection preferences={preferences} />
+        <PaletteSection
+          preferences={preferences}
+          theme={theme}
+          touch={layout.compact || layout.platform !== "web"}
+        />
       </RuntimeProvider>
     </View>
   );

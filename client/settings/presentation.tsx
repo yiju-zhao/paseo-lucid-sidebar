@@ -37,7 +37,7 @@ export function PresentationSettings({ theme, layout }: PluginSurfaceProps) {
     <Preview
       theme={theme}
       layout={layout}
-      height={side ? 760 : 560}
+      height={side ? 960 : 720}
       width={side ? PREVIEW_WIDTH : undefined}
       initialGrouping={preferences.values.grouping}
     />

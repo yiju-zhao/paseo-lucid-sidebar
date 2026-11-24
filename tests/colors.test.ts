@@ -47,8 +47,8 @@ describe("colors", () => {
       {
         ...defaults,
         hostOverrides: {
-          srv: { name: "", color: "red", icon: "auto" },
-          other: { name: "", color: "auto", icon: "auto" },
+          srv: { color: "red", icon: "auto" },
+          other: { color: "auto", icon: "auto" },
         },
       },
       true,

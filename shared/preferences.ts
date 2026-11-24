@@ -68,9 +68,8 @@ const APPEARANCE_DEFAULTS: z.output<typeof appearance> = {
   timeFormat: "relative",
 };
 
+/** Paseo renames hosts itself, so a host keeps its own name; a 0.4.0 `name` is stripped. */
 const hostOverride = z.object({
-  /** Shown instead of the host's label; blank keeps the label. */
-  name: z.string().catch(""),
   color: z.enum([...COLOR_NAMES, "auto"]).catch("auto"),
   icon: z.enum(HOST_ICONS).catch("auto"),
 });
@@ -120,7 +119,7 @@ const schema = z.object({
   collapsed: z.array(z.string()).default([]),
   // Missing or not an object (null, a newer shape): fall back rather than invalidate the document.
   appearance: appearance.default(APPEARANCE_DEFAULTS).catch(APPEARANCE_DEFAULTS),
-  /** Per server id: display name, color and icon. */
+  /** Per server id: color and icon. */
   hostOverrides: hostOverrides.default({}),
   /** Per project view key: tag and tile color. */
   projectColors: projectColors.default({}),

@@ -1,10 +1,5 @@
 import { useHosts, type PluginHostSummary } from "@getpaseo/plugin/client";
-import {
-  SettingsCard,
-  SettingsInput,
-  SettingsSection,
-  SettingsSelect,
-} from "@getpaseo/plugin/client/ui";
+import { SettingsCard, SettingsSection, SettingsSelect } from "@getpaseo/plugin/client/ui";
 import type { SidebarPreferences } from "../../shared/preferences";
 import { useLocalHostId } from "../local-host";
 import { compareNames } from "../model";
@@ -12,9 +7,9 @@ import { usePreferences, type Preferences } from "../preferences";
 import { COLOR_OPTIONS, HOST_ICON_OPTIONS } from "./options";
 
 type HostOverride = SidebarPreferences["hostOverrides"][string];
-const NO_OVERRIDE: HostOverride = { name: "", color: "auto", icon: "auto" };
+const NO_OVERRIDE: HostOverride = { color: "auto", icon: "auto" };
 
-/** Settings tab: a name, color and icon per configured host, this device's host first. */
+/** Settings tab: a color and icon per configured host, this device's host first. */
 export function HostsSettings() {
   const preferences = usePreferences();
   const hosts = useHosts();
@@ -46,11 +41,6 @@ function HostCard({ host, preferences }: { host: PluginHostSummary; preferences:
   return (
     <SettingsSection title={host.label}>
       <SettingsCard>
-        <NameInput
-          initial={override.name}
-          placeholder={host.label}
-          onSave={(name) => set({ name })}
-        />
         <SettingsSelect
           label="Color"
           value={override.color}
@@ -65,30 +55,5 @@ function HostCard({ host, preferences }: { host: PluginHostSummary; preferences:
         />
       </SettingsCard>
     </SettingsSection>
-  );
-}
-
-/**
- * The display name. The input reports only text changes, so every change saves at once: the
- * save queue folds changes made during a save into the next one, and nothing waits on a timer
- * that leaving the page would cancel.
- */
-function NameInput({
-  initial,
-  placeholder,
-  onSave,
-}: {
-  initial: string;
-  placeholder: string;
-  onSave: (name: string) => void;
-}) {
-  return (
-    <SettingsInput
-      label="Display name"
-      hint="Shown in host headings and filters. Leave empty to use the host's own name."
-      initialValue={initial}
-      placeholder={placeholder}
-      onChangeText={(text) => onSave(text.trim())}
-    />
   );
 }

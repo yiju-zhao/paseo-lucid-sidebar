@@ -61,7 +61,7 @@ describe("appearance settings (v5)", () => {
     });
     assert.equal(next.appearance.preset, "default");
     assert.equal(next.appearance.density, "compact");
-    assert.deepEqual(next.hostOverrides.srv_a, { name: "Mini", color: "auto", icon: "auto" });
+    assert.deepEqual(next.hostOverrides.srv_a, { color: "auto", icon: "auto" });
     assert.deepEqual(next.projectColors, { ok: "teal" });
   });
 });
@@ -71,7 +71,7 @@ describe("damaged settings", () => {
     const next = sidebarSettings.schema.parse({
       hostOverrides: { a: { name: "Mini", color: "red", icon: "gpu" }, b: null },
     });
-    assert.deepEqual(next.hostOverrides, { a: { name: "Mini", color: "red", icon: "gpu" } });
+    assert.deepEqual(next.hostOverrides, { a: { color: "red", icon: "gpu" } });
   });
 
   it("falls back to default appearance instead of invalidating the document", () => {

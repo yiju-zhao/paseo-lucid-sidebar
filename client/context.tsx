@@ -12,7 +12,6 @@ import type { ProjectDirectory } from "./runtime";
 /** Everything known about connected hosts, in one place. */
 export interface HostDirectory {
   list: readonly PluginHostSummary[];
-  /** The custom display name, else the host's label. */
   label(hostId: string): string;
   /** The daemon on this device. */
   isLocal(hostId: string): boolean;
@@ -37,10 +36,7 @@ export function makeHostDirectory(
   overrides: SidebarPreferences["hostOverrides"],
   colors: Colors,
 ): HostDirectory {
-  const label = (hostId: string) =>
-    overrides[hostId]?.name.trim() ||
-    list.find((host) => host.serverId === hostId)?.label ||
-    hostId;
+  const label = (hostId: string) => list.find((host) => host.serverId === hostId)?.label ?? hostId;
   const rank = (hostId: string) => (hostId === localHostId ? 0 : 1);
   return {
     list,

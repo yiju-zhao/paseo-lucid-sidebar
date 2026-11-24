@@ -14,18 +14,9 @@ const directory = (overrides: typeof DEFAULT_PREFERENCES.hostOverrides) =>
   makeHostDirectory(list, "local", overrides, colors);
 
 describe("host directory", () => {
-  it("shows a host's custom name", () => {
-    assert.equal(
-      directory({ srv: { name: "Mini", color: "auto", icon: "auto" } }).label("srv"),
-      "Mini",
-    );
-  });
-
-  it("falls back to the host's label for a blank name", () => {
-    assert.equal(
-      directory({ srv: { name: "   ", color: "auto", icon: "auto" } }).label("srv"),
-      "eason's Mac mini",
-    );
+  it("shows the host's own label, ignoring a name stored by 0.4.0", () => {
+    const stored = { srv: { name: "Mini", color: "auto", icon: "auto" } } as never;
+    assert.equal(directory(stored).label("srv"), "eason's Mac mini");
   });
 
   it("handles a host it does not know", () => {
@@ -35,14 +26,14 @@ describe("host directory", () => {
   });
 
   it("picks icons: monitor for this device, server elsewhere, or the chosen one", () => {
-    const hosts = directory({ gpu: { name: "", color: "auto", icon: "gpu" } });
+    const hosts = directory({ gpu: { color: "auto", icon: "gpu" } });
     assert.equal(hosts.icon("local"), "Monitor");
     assert.equal(hosts.icon("srv"), "Server");
     assert.equal(hosts.icon("gpu"), "Cpu");
   });
 
-  it("sorts remote hosts by their custom name", () => {
-    const hosts = directory({ gpu: { name: "Alpha", color: "auto", icon: "auto" } });
-    assert.deepEqual(["srv", "gpu", "local"].sort(hosts.compare), ["local", "gpu", "srv"]);
+  it("sorts this device first, then remote hosts by label", () => {
+    const hosts = directory({});
+    assert.deepEqual(["gpu", "srv", "local"].sort(hosts.compare), ["local", "srv", "gpu"]);
   });
 });

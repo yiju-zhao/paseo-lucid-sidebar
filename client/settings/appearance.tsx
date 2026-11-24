@@ -24,7 +24,7 @@ export function AppearanceSection({ preferences }: { preferences: Preferences })
       <SettingsCard>
         <SettingsSelect
           label="Color preset"
-          hint="Colors for hosts and projects that have no color of their own."
+          hint="Colors for projects and labels that have no color of their own. Hosts keep their own colors."
           value={appearance.preset}
           options={PRESET_OPTIONS}
           onValueChange={set("preset")}

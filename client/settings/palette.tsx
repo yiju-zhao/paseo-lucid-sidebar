@@ -14,9 +14,8 @@ import {
   HOST_ICONS,
   PROJECT_COLOR_NAMES,
   type HostIcon,
-  type ProjectColor,
 } from "../../shared/preferences";
-import { autoColorName, chosenColor, colorFor } from "../colors";
+import { autoColorName, autoHostColorName, chosenColor, colorFor, hostColor } from "../colors";
 import { hostIconName } from "../context";
 import { useLocalHostId } from "../local-host";
 import { compareNames, projectInitial } from "../model";
@@ -231,6 +230,7 @@ function Trigger({
 function ColorPanel<Value extends string>({
   value,
   choices,
+  colorOf,
   auto,
   shared,
   label,
@@ -238,16 +238,18 @@ function ColorPanel<Value extends string>({
 }: {
   value: Value | "auto";
   choices: readonly Value[];
+  /** The fill shown for a choice. */
+  colorOf: (choice: Value) => IdentityColor;
   auto: IdentityColor;
   shared: Shared;
   label: string;
   onChange: (choice: Value | "auto") => void;
 }) {
-  const { theme, dark, touch, onFill } = shared;
+  const { theme, touch, onFill } = shared;
   const size = touch ? 24 : 18;
   const option = (choice: Value | "auto") => {
     const selected = value === choice;
-    const fill = choice === "auto" ? auto.fill : chosenColor(choice as ProjectColor, dark).fill;
+    const fill = choice === "auto" ? auto.fill : colorOf(choice).fill;
     return (
       <Pressable
         key={choice}
@@ -324,8 +326,8 @@ function HostLine({
     color: "auto" as const,
     icon: "auto" as const,
   };
-  const auto = colorFor(autoColorName(host.serverId), preferences.values.appearance.preset, dark);
-  const shown = override.color === "auto" ? auto : chosenColor(override.color, dark);
+  const auto = hostColor(autoHostColorName(host.serverId), dark);
+  const shown = override.color === "auto" ? auto : hostColor(override.color, dark);
   const colorKey = `host:${host.serverId}:color`;
   const iconKey = `host:${host.serverId}:icon`;
   const toggle = (key: string) => setOpenKey(openKey === key ? null : key);
@@ -382,6 +384,7 @@ function HostLine({
         <ColorPanel
           value={override.color}
           choices={HOST_COLOR_NAMES}
+          colorOf={(name) => hostColor(name, dark)}
           auto={auto}
           shared={shared}
           label={`${host.label} color`}
@@ -557,6 +560,7 @@ function ProjectLine({
         <ColorPanel
           value={chosen ?? "auto"}
           choices={PROJECT_COLOR_NAMES}
+          colorOf={(name) => chosenColor(name, dark)}
           auto={auto}
           shared={shared}
           label={`${name} color`}

@@ -36,16 +36,19 @@ export const PROJECT_COLOR_NAMES = [
   "slate",
   "brown",
 ] as const;
-/** Colors a host can be given: eight far apart, so hosts stay easy to tell apart. */
+/**
+ * Colors a host can be given: a light, bright set of its own, read as heading text and guide
+ * lines, and never one of the project colors.
+ */
 export const HOST_COLOR_NAMES = [
-  "violet",
-  "sky",
-  "emerald",
-  "orange",
-  "pink",
-  "indigo",
-  "red",
-  "amber",
+  "coral",
+  "gold",
+  "mint",
+  "aqua",
+  "azure",
+  "lavender",
+  "peach",
+  "silver",
 ] as const;
 
 /** An automatic color: the built-in identity palette, varied by preset. */

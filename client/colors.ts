@@ -1,6 +1,8 @@
 import {
   COLOR_NAMES,
   type ColorName,
+  HOST_COLOR_NAMES,
+  type HostColor,
   type Preset,
   type ProjectColor,
   type SidebarPreferences,
@@ -99,11 +101,44 @@ export function chosenColor(name: ProjectColor, dark: boolean): IdentityColor {
   };
 }
 
-/** The color a key gets when nobody chose one: the built-in sidebar's hash. */
+/**
+ * Host colors: a light, bright style of their own for headings and guide lines, distinct from
+ * the solid project colors. Presets do not change them.
+ */
+export const HOST_PALETTE: Record<HostColor, Entry> = {
+  coral: entry("#e0675a", "#ff8a7a", "#b8372b"),
+  gold: entry("#c99a1a", "#f2c94c", "#8a6500"),
+  mint: entry("#2fb58a", "#5fe0b5", "#0f7454"),
+  aqua: entry("#2aa7bf", "#5ad1e6", "#0d6a7c"),
+  azure: entry("#4f86e6", "#8bb8ff", "#2253b8"),
+  lavender: entry("#9a76e6", "#c6a6ff", "#5f37b8"),
+  peach: entry("#e08a55", "#ffb385", "#9e4f19"),
+  silver: entry("#8a929e", "#c9ced6", "#545c68"),
+};
+
+export function hostColor(name: HostColor, dark: boolean): IdentityColor {
+  const color = HOST_PALETTE[name];
+  return {
+    fill: color.base,
+    text: dark ? color.darkText : color.lightText,
+    tint: `${color.base}1a`,
+  };
+}
+
+function hash(key: string): number {
+  let value = 0;
+  for (const character of key) value = (value * 31 + character.charCodeAt(0)) >>> 0;
+  return value;
+}
+
+/** The color a project or label gets when nobody chose one: the built-in sidebar's hash. */
 export function autoColorName(key: string): ColorName {
-  let hash = 0;
-  for (const character of key) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  return COLOR_NAMES[hash % COLOR_NAMES.length];
+  return COLOR_NAMES[hash(key) % COLOR_NAMES.length];
+}
+
+/** The host color a host gets when nobody chose one. */
+export function autoHostColorName(hostId: string): HostColor {
+  return HOST_COLOR_NAMES[hash(hostId) % HOST_COLOR_NAMES.length];
 }
 
 export function colorFor(name: ColorName, preset: Preset, dark: boolean): IdentityColor {
@@ -123,8 +158,8 @@ export interface Colors {
 }
 
 /**
- * Colors for the current preferences. Presets restyle automatic colors only: a color the user
- * chose for a host or project keeps its own hue, from the Default palette, under every preset.
+ * Colors for the current preferences. Hosts use the host palette. Presets restyle automatic
+ * project and label colors only: a chosen project color keeps its hue under every preset.
  */
 export function makeColors(
   values: Pick<SidebarPreferences, "appearance" | "hostOverrides" | "projectColors">,
@@ -136,7 +171,7 @@ export function makeColors(
     named,
     host: (hostId) => {
       const chosen = values.hostOverrides[hostId]?.color;
-      return chosen && chosen !== "auto" ? chosenColor(chosen, dark) : named(autoColorName(hostId));
+      return hostColor(chosen && chosen !== "auto" ? chosen : autoHostColorName(hostId), dark);
     },
     project: (viewKey) => {
       const chosen = values.projectColors[viewKey];

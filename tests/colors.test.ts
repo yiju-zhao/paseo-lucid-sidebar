@@ -1,10 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { autoColorName, CHOSEN, chosenColor, colorFor, makeColors, PALETTES } from "../client/colors";
+import {
+  autoColorName,
+  autoHostColorName,
+  CHOSEN,
+  chosenColor,
+  colorFor,
+  HOST_PALETTE,
+  hostColor,
+  makeColors,
+  PALETTES,
+} from "../client/colors";
 import {
   COLOR_NAMES,
   DEFAULT_PREFERENCES,
   PRESETS,
+  HOST_COLOR_NAMES,
   PROJECT_COLOR_NAMES,
 } from "../shared/preferences";
 
@@ -52,14 +63,14 @@ describe("colors", () => {
       {
         ...defaults,
         hostOverrides: {
-          srv: { color: "red", icon: "auto" },
+          srv: { color: "coral", icon: "auto" },
           other: { color: "auto", icon: "auto" },
         },
       },
       true,
     );
-    assert.equal(colors.host("srv").fill, chosenColor("red", true).fill);
-    assert.deepEqual(colors.host("other"), colorFor(autoColorName("other"), "default", true));
+    assert.deepEqual(colors.host("srv"), hostColor("coral", true));
+    assert.deepEqual(colors.host("other"), hostColor(autoHostColorName("other"), true));
   });
 
   it("defines every color in every preset as hex", () => {
@@ -110,6 +121,42 @@ describe("chosen colors", () => {
     for (const name of PROJECT_COLOR_NAMES) {
       const ratio = contrastOnWhite(CHOSEN[name].base);
       assert.ok(ratio >= floor, `${name}: ${ratio.toFixed(2)} < ${floor.toFixed(2)}`);
+    }
+  });
+});
+
+// WCAG contrast between two colors.
+function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const channel = (index: number) => {
+      const value = parseInt(hex.slice(index, index + 2), 16) / 255;
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  };
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+describe("host colors", () => {
+  it("share no color with projects", () => {
+    for (const name of HOST_COLOR_NAMES)
+      assert.ok(!(PROJECT_COLOR_NAMES as readonly string[]).includes(name), name);
+  });
+
+  it("give hosts without a chosen color one of the host colors", () => {
+    const colors = makeColors(DEFAULT_PREFERENCES, true);
+    for (const hostId of ["srv_a", "srv_b", "local"])
+      assert.ok(
+        HOST_COLOR_NAMES.some((name) => hostColor(name, true).fill === colors.host(hostId).fill),
+      );
+  });
+
+  it("read clearly as text on the dark and light sidebar backgrounds", () => {
+    for (const name of HOST_COLOR_NAMES) {
+      const entry = HOST_PALETTE[name];
+      assert.ok(contrast(entry.darkText, "#141716") >= 4.5, `${name} on dark`);
+      assert.ok(contrast(entry.lightText, "#f4f4f5") >= 4.5, `${name} on light`);
     }
   });
 });

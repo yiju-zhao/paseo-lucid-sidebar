@@ -74,9 +74,9 @@ describe("appearance settings (v5)", () => {
 describe("damaged settings", () => {
   it("drops only the bad host entry and keeps the others", () => {
     const next = sidebarSettings.schema.parse({
-      hostOverrides: { a: { name: "Mini", color: "red", icon: "gpu" }, b: null },
+      hostOverrides: { a: { name: "Mini", color: "coral", icon: "gpu" }, b: null },
     });
-    assert.deepEqual(next.hostOverrides, { a: { color: "red", icon: "gpu" } });
+    assert.deepEqual(next.hostOverrides, { a: { color: "coral", icon: "gpu" } });
   });
 
   it("falls back to default appearance instead of invalidating the document", () => {
@@ -88,9 +88,9 @@ describe("damaged settings", () => {
 });
 
 describe("color choices", () => {
-  it("offers hosts eight colors, all among the sixteen project colors", () => {
+  it("offers hosts eight colors of their own", () => {
     assert.equal(HOST_COLOR_NAMES.length, 8);
-    for (const name of HOST_COLOR_NAMES) assert.ok(PROJECT_COLOR_NAMES.includes(name));
+    assert.equal(PROJECT_COLOR_NAMES.length, 16);
   });
 
   it("turns a host color outside the eight back to auto, keeping its icon", () => {

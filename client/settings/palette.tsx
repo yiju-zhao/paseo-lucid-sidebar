@@ -9,19 +9,27 @@ import {
   type ProjectRef,
 } from "@getpaseo/plugin/client";
 import { Icon, SettingsCard, SettingsSection } from "@getpaseo/plugin/client/ui";
-import { COLOR_NAMES, HOST_ICONS, type ColorName, type HostIcon } from "../../shared/preferences";
-import { autoColorName, colorFor } from "../colors";
+import {
+  HOST_COLOR_NAMES,
+  HOST_ICONS,
+  PROJECT_COLOR_NAMES,
+  type HostIcon,
+  type ProjectColor,
+} from "../../shared/preferences";
+import { autoColorName, chosenColor, colorFor } from "../colors";
 import { hostIconName } from "../context";
 import { useLocalHostId } from "../local-host";
-import { compareNames } from "../model";
+import { compareNames, projectInitial } from "../model";
 import { makePalette, type IdentityColor } from "../palette";
 import type { Preferences } from "../preferences";
 import { useProjectDirectory } from "../runtime";
 
 type Theme = PluginSurfaceProps["theme"];
-type Choice = ColorName | "auto";
 
 interface Shared {
+  /** The one dropdown open in the Palette, by key; opening one closes the other. */
+  openKey: string | null;
+  setOpenKey: (key: string | null) => void;
   preferences: Preferences;
   theme: Theme;
   dark: boolean;
@@ -44,7 +52,10 @@ export function PaletteSection({
   touch: boolean;
 }) {
   const palette = makePalette(theme);
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const shared: Shared = {
+    openKey,
+    setOpenKey,
     preferences,
     theme,
     dark: palette.dark,
@@ -143,27 +154,100 @@ function Line({
   );
 }
 
-/**
- * Auto, then the ten colors, as filled dots; the chosen one is ringed. Auto shows the color the
- * item gets automatically, marked "A". Names stay for screen readers only.
- */
-function Swatches({
+/** A filled color dot; "A" marks the automatic color. */
+function Dot({
+  fill,
+  size,
+  mark,
+  onFill,
+}: {
+  fill: string;
+  size: number;
+  mark?: boolean;
+  onFill: string;
+}) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: fill,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {mark ? (
+        <Text style={{ color: onFill, fontSize: size * 0.55, fontWeight: "700" }}>A</Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** A compact dropdown trigger: the current value, then a chevron. */
+function Trigger({
+  label,
+  open,
+  shared,
+  onPress,
+  children,
+}: {
+  label: string;
+  open: boolean;
+  shared: Shared;
+  onPress: () => void;
+  children: ReactNode;
+}) {
+  const { theme, touch } = shared;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ expanded: open }}
+      onPress={onPress}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 6,
+        height: touch ? 34 : 26,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: open ? theme.colors.foregroundMuted : theme.colors.border,
+        backgroundColor: open ? theme.colors.surface2 : "transparent",
+      }}
+    >
+      {children}
+      <Icon
+        name={open ? "ChevronUp" : "ChevronDown"}
+        size={12}
+        color={theme.colors.foregroundMuted}
+      />
+    </Pressable>
+  );
+}
+
+/** The dropdown's choices, shown under the line: colors only, the current one ringed. */
+function ColorPanel<Value extends string>({
   value,
+  choices,
   auto,
   shared,
   label,
   onChange,
 }: {
-  value: Choice;
+  value: Value | "auto";
+  choices: readonly Value[];
   auto: IdentityColor;
   shared: Shared;
   label: string;
-  onChange: (choice: Choice) => void;
+  onChange: (choice: Value | "auto") => void;
 }) {
   const { theme, dark, touch, onFill } = shared;
-  const size = touch ? 22 : 16;
-  const dot = (choice: Choice, fill: string, mark?: string) => {
+  const size = touch ? 24 : 18;
+  const option = (choice: Value | "auto") => {
     const selected = value === choice;
+    const fill = choice === "auto" ? auto.fill : chosenColor(choice as ProjectColor, dark).fill;
     return (
       <Pressable
         key={choice}
@@ -171,31 +255,17 @@ function Swatches({
         accessibilityState={{ selected }}
         accessibilityLabel={`${label}: ${choice === "auto" ? "automatic color" : choice}`}
         onPress={() => onChange(choice)}
-        hitSlop={3}
         style={{
-          width: size + 6,
-          height: size + 6,
-          borderRadius: (size + 6) / 2,
+          width: size + 8,
+          height: size + 8,
+          borderRadius: (size + 8) / 2,
           borderWidth: 2,
           borderColor: selected ? theme.colors.foreground : "transparent",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <View
-          style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: fill,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {mark ? (
-            <Text style={{ color: onFill, fontSize: size * 0.55, fontWeight: "700" }}>{mark}</Text>
-          ) : null}
-        </View>
+        <Dot fill={fill} size={size} mark={choice === "auto"} onFill={onFill} />
       </Pressable>
     );
   };
@@ -203,10 +273,17 @@ function Swatches({
     <View
       accessibilityRole="radiogroup"
       accessibilityLabel={label}
-      style={{ flexDirection: "row" }}
+      style={{
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 2,
+        paddingLeft: 32,
+        paddingRight: 12,
+        paddingBottom: 6,
+      }}
     >
-      {dot("auto", auto.fill, "A")}
-      {COLOR_NAMES.map((name) => dot(name, colorFor(name, "default", dark).fill))}
+      {option("auto")}
+      {choices.map(option)}
     </View>
   );
 }
@@ -242,40 +319,32 @@ function HostLine({
   local: boolean;
   shared: Shared;
 }) {
-  const { preferences, dark, theme } = shared;
-  const [picking, setPicking] = useState(false);
+  const { preferences, dark, openKey, setOpenKey, touch, onFill } = shared;
   const override = preferences.values.hostOverrides[host.serverId] ?? {
     color: "auto" as const,
     icon: "auto" as const,
   };
   const auto = colorFor(autoColorName(host.serverId), preferences.values.appearance.preset, dark);
-  const shown = override.color === "auto" ? auto : colorFor(override.color, "default", dark);
-  const set = (patch: Partial<typeof override>) =>
+  const shown = override.color === "auto" ? auto : chosenColor(override.color, dark);
+  const colorKey = `host:${host.serverId}:color`;
+  const iconKey = `host:${host.serverId}:icon`;
+  const toggle = (key: string) => setOpenKey(openKey === key ? null : key);
+  const set = (patch: Partial<typeof override>) => {
+    setOpenKey(null);
     preferences.update((current) => ({
       hostOverrides: {
         ...current.hostOverrides,
         [host.serverId]: { ...(current.hostOverrides[host.serverId] ?? override), ...patch },
       },
     }));
+  };
   return (
     <View>
       <Line
         shared={shared}
         name={
           <>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Change the icon of ${host.label}`}
-              onPress={() => setPicking(!picking)}
-              hitSlop={4}
-              style={{
-                padding: 2,
-                borderRadius: 4,
-                backgroundColor: picking ? theme.colors.surface2 : "transparent",
-              }}
-            >
-              <Icon name={hostIconName(override.icon, local)} size={14} color={shown.text} />
-            </Pressable>
+            <Icon name={hostIconName(override.icon, local)} size={14} color={shown.text} />
             <Text
               numberOfLines={1}
               style={{ flexShrink: 1, color: shown.text, fontSize: 13, fontWeight: "700" }}
@@ -285,24 +354,47 @@ function HostLine({
           </>
         }
       >
-        <Swatches
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          <Trigger
+            label={`Icon of ${host.label}`}
+            open={openKey === iconKey}
+            shared={shared}
+            onPress={() => toggle(iconKey)}
+          >
+            <Icon name={hostIconName(override.icon, local)} size={14} color={shown.text} />
+          </Trigger>
+          <Trigger
+            label={`Color of ${host.label}`}
+            open={openKey === colorKey}
+            shared={shared}
+            onPress={() => toggle(colorKey)}
+          >
+            <Dot
+              fill={shown.fill}
+              size={touch ? 18 : 14}
+              mark={override.color === "auto"}
+              onFill={onFill}
+            />
+          </Trigger>
+        </View>
+      </Line>
+      {openKey === colorKey ? (
+        <ColorPanel
           value={override.color}
+          choices={HOST_COLOR_NAMES}
           auto={auto}
           shared={shared}
           label={`${host.label} color`}
           onChange={(color) => set({ color })}
         />
-      </Line>
-      {picking ? (
+      ) : null}
+      {openKey === iconKey ? (
         <IconPicker
           value={override.icon}
           local={local}
           color={shown.text}
           shared={shared}
-          onChange={(icon) => {
-            set({ icon });
-            setPicking(false);
-          }}
+          onChange={(icon) => set({ icon })}
         />
       ) : null}
     </View>
@@ -417,53 +509,68 @@ function ProjectLine({
   reference: ProjectRef;
   shared: Shared;
 }) {
-  const { preferences, dark, onFill } = shared;
+  const { preferences, dark, onFill, openKey, setOpenKey, touch } = shared;
   const name = useProject(reference, (project) => project.displayName) ?? viewKey;
   const chosen = preferences.values.projectColors[viewKey];
   const auto = colorFor(autoColorName(viewKey), preferences.values.appearance.preset, dark);
-  const shown = chosen ? colorFor(chosen, "default", dark) : auto;
+  const shown = chosen ? chosenColor(chosen, dark) : auto;
+  const key = `project:${viewKey}`;
   return (
-    <Line
-      shared={shared}
-      name={
-        <>
-          <View
-            style={{
-              width: 14,
-              height: 14,
-              borderRadius: 4,
-              backgroundColor: shown.fill,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text style={{ color: onFill, fontSize: 8, fontWeight: "700" }}>
-              {(name.split("/").pop() ?? name).charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <Text
-            numberOfLines={1}
-            style={{ flexShrink: 1, color: shown.text, fontSize: 13, fontWeight: "600" }}
-          >
-            {name}
-          </Text>
-        </>
-      }
-    >
-      <Swatches
-        value={chosen ?? "auto"}
-        auto={auto}
+    <View>
+      <Line
         shared={shared}
-        label={`${name} color`}
-        onChange={(color) =>
-          preferences.update((current) => {
-            const next = { ...current.projectColors };
-            if (color === "auto") delete next[viewKey];
-            else next[viewKey] = color;
-            return { projectColors: next };
-          })
+        name={
+          <>
+            <View
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: 4,
+                backgroundColor: shown.fill,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: onFill, fontSize: 8, fontWeight: "700" }}>
+                {projectInitial(name)}
+              </Text>
+            </View>
+            <Text
+              numberOfLines={1}
+              style={{ flexShrink: 1, color: shown.text, fontSize: 13, fontWeight: "600" }}
+            >
+              {name}
+            </Text>
+          </>
         }
-      />
-    </Line>
+      >
+        <Trigger
+          label={`Color of ${name}`}
+          open={openKey === key}
+          shared={shared}
+          onPress={() => setOpenKey(openKey === key ? null : key)}
+        >
+          <Dot fill={shown.fill} size={touch ? 18 : 14} mark={!chosen} onFill={onFill} />
+        </Trigger>
+      </Line>
+      {openKey === key ? (
+        <ColorPanel
+          value={chosen ?? "auto"}
+          choices={PROJECT_COLOR_NAMES}
+          auto={auto}
+          shared={shared}
+          label={`${name} color`}
+          onChange={(color) => {
+            setOpenKey(null);
+            preferences.update((current) => {
+              const next = { ...current.projectColors };
+              if (color === "auto") delete next[viewKey];
+              else next[viewKey] = color;
+              return { projectColors: next };
+            });
+          }}
+        />
+      ) : null}
+    </View>
   );
 }

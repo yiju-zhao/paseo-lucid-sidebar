@@ -2,6 +2,7 @@ import {
   COLOR_NAMES,
   type ColorName,
   type Preset,
+  type ProjectColor,
   type SidebarPreferences,
 } from "../shared/preferences";
 import type { IdentityColor } from "./palette";
@@ -75,6 +76,29 @@ export const PALETTES: Record<Preset, Record<ColorName, Entry>> = {
   },
 };
 
+/**
+ * Colors a user can choose for a host or project. They keep their hue under every preset; the
+ * first ten are the Default palette's.
+ */
+export const CHOSEN: Record<ProjectColor, Entry> = {
+  ...PALETTES.default,
+  rose: entry("#b04a5e", "#e08799", "#933a4c"),
+  cyan: entry("#1f7a8c", "#5cc1d3", "#19606e"),
+  lime: entry("#5a7428", "#9cc25a", "#4a5f20"),
+  fuchsia: entry("#a2479e", "#d27fce", "#84367f"),
+  slate: entry("#5b6675", "#9aa6b5", "#48525f"),
+  brown: entry("#8a5a3c", "#c08d6d", "#6f472f"),
+};
+
+export function chosenColor(name: ProjectColor, dark: boolean): IdentityColor {
+  const color = CHOSEN[name];
+  return {
+    fill: color.base,
+    text: dark ? color.darkText : color.lightText,
+    tint: `${color.base}1a`,
+  };
+}
+
 /** The color a key gets when nobody chose one: the built-in sidebar's hash. */
 export function autoColorName(key: string): ColorName {
   let hash = 0;
@@ -112,13 +136,11 @@ export function makeColors(
     named,
     host: (hostId) => {
       const chosen = values.hostOverrides[hostId]?.color;
-      return chosen && chosen !== "auto"
-        ? colorFor(chosen, "default", dark)
-        : named(autoColorName(hostId));
+      return chosen && chosen !== "auto" ? chosenColor(chosen, dark) : named(autoColorName(hostId));
     },
     project: (viewKey) => {
       const chosen = values.projectColors[viewKey];
-      return chosen ? colorFor(chosen, "default", dark) : named(autoColorName(viewKey));
+      return chosen ? chosenColor(chosen, dark) : named(autoColorName(viewKey));
     },
     label: (labelKey) => named(autoColorName(labelKey)),
   };

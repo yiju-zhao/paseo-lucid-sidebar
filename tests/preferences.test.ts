@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DEFAULT_PREFERENCES, sidebarSettings } from "../shared/preferences";
+import {
+  DEFAULT_PREFERENCES,
+  HOST_COLOR_NAMES,
+  PROJECT_COLOR_NAMES,
+  sidebarSettings,
+} from "../shared/preferences";
 
 const migrate = (values: unknown, fromVersion: number) =>
   sidebarSettings.schema.parse(sidebarSettings.migrate?.(values, fromVersion));
@@ -79,5 +84,26 @@ describe("damaged settings", () => {
     assert.ok(parsed.success);
     assert.equal(parsed.data.grouping, "status");
     assert.equal(parsed.data.appearance.density, "standard");
+  });
+});
+
+describe("color choices", () => {
+  it("offers hosts eight colors, all among the sixteen project colors", () => {
+    assert.equal(HOST_COLOR_NAMES.length, 8);
+    for (const name of HOST_COLOR_NAMES) assert.ok(PROJECT_COLOR_NAMES.includes(name));
+  });
+
+  it("turns a host color outside the eight back to auto, keeping its icon", () => {
+    const next = sidebarSettings.schema.parse({
+      hostOverrides: { a: { color: "teal", icon: "gpu" } },
+    });
+    assert.deepEqual(next.hostOverrides.a, { color: "auto", icon: "gpu" });
+  });
+
+  it("keeps a new project color and drops an unknown one", () => {
+    const next = sidebarSettings.schema.parse({
+      projectColors: { web: "cyan", api: "magenta" },
+    });
+    assert.deepEqual(next.projectColors, { web: "cyan" });
   });
 });

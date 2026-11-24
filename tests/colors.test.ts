@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { autoColorName, colorFor, makeColors, PALETTES } from "../client/colors";
-import { COLOR_NAMES, DEFAULT_PREFERENCES, PRESETS } from "../shared/preferences";
+import { autoColorName, CHOSEN, chosenColor, colorFor, makeColors, PALETTES } from "../client/colors";
+import {
+  COLOR_NAMES,
+  DEFAULT_PREFERENCES,
+  PRESETS,
+  PROJECT_COLOR_NAMES,
+} from "../shared/preferences";
 
 const defaults = {
   appearance: DEFAULT_PREFERENCES.appearance,
@@ -38,7 +43,7 @@ describe("colors", () => {
           dark,
         );
         // A chosen color keeps its own hue; presets only restyle automatic colors.
-        assert.deepEqual(colors.project("repo"), colorFor("teal", "default", dark));
+        assert.deepEqual(colors.project("repo"), chosenColor("teal", dark));
       }
   });
 
@@ -53,7 +58,7 @@ describe("colors", () => {
       },
       true,
     );
-    assert.equal(colors.host("srv").fill, colorFor("red", "default", true).fill);
+    assert.equal(colors.host("srv").fill, chosenColor("red", true).fill);
     assert.deepEqual(colors.host("other"), colorFor(autoColorName("other"), "default", true));
   });
 
@@ -88,5 +93,23 @@ describe("palette readability", () => {
         const ratio = contrastOnWhite(PALETTES[preset][name].base);
         assert.ok(ratio >= floor, `${preset}.${name}: ${ratio.toFixed(2)} < ${floor.toFixed(2)}`);
       }
+  });
+});
+
+describe("chosen colors", () => {
+  it("offers sixteen project colors, the first ten being the Default palette's", () => {
+    assert.equal(PROJECT_COLOR_NAMES.length, 16);
+    for (const name of COLOR_NAMES)
+      assert.deepEqual(chosenColor(name, true), colorFor(name, "default", true));
+  });
+
+  it("keeps white text on every chosen color as readable as on Default's", () => {
+    const floor = Math.min(
+      ...COLOR_NAMES.map((name) => contrastOnWhite(PALETTES.default[name].base)),
+    );
+    for (const name of PROJECT_COLOR_NAMES) {
+      const ratio = contrastOnWhite(CHOSEN[name].base);
+      assert.ok(ratio >= floor, `${name}: ${ratio.toFixed(2)} < ${floor.toFixed(2)}`);
+    }
   });
 });

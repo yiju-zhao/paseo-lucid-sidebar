@@ -6,13 +6,7 @@ import { disclosureLabel, fill, useHover, useSidebar } from "./context";
 import { IconButton } from "./controls";
 import { IndicatorGlyph, LeadingSlot, ProjectStatusVisual } from "./indicators";
 import { keys } from "./keys";
-import {
-  HEADER_MARGIN,
-  type HostBlocks,
-  type ProjectBlock,
-  type RowList,
-  type StatusSection,
-} from "./layout";
+import { type HostBlocks, type ProjectBlock, type RowList, type StatusSection } from "./layout";
 import { STATUS_LABEL, toggled } from "./model";
 import { withAlpha } from "./palette";
 import { useToggleExpanded } from "./ui-state";
@@ -42,14 +36,14 @@ export function SectionHeader({
   collapsed?: boolean;
   actions?: ReactNode;
 }) {
-  const { theme, touch, pointer } = useSidebar();
+  const { theme, touch, pointer, metrics } = useSidebar();
   const hover = useHover();
   const toggle = useCollapseToggle(collapseKey ?? "");
   const label = <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>{title}</Text>;
   return (
     <View
       style={{
-        minHeight: touch ? 44 : 36,
+        minHeight: metrics.headerMinHeight,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
@@ -114,7 +108,7 @@ function DisclosureRow({
   collapsed: boolean;
   actions?: ReactNode;
 }) {
-  const { theme, palette, touch, pointer } = useSidebar();
+  const { theme, palette, pointer, metrics } = useSidebar();
   const hover = useHover();
   const toggle = useCollapseToggle(collapseKey);
   const showActions = hover.hovered || !pointer;
@@ -127,11 +121,11 @@ function DisclosureRow({
         accessibilityState={{ expanded: !collapsed }}
         onPress={toggle}
         style={({ pressed }) => ({
-          minHeight: touch ? 44 : compact ? 30 : 36,
-          paddingVertical: compact && !touch ? 5 : 8,
+          minHeight: compact ? metrics.projectHeaderMinHeight : metrics.headerMinHeight,
+          paddingVertical: compact ? metrics.projectHeaderPaddingY : metrics.headerPaddingY,
           paddingHorizontal: 8,
           borderRadius: 8,
-          marginBottom: compact ? HEADER_MARGIN : 4,
+          marginBottom: compact ? metrics.headerMargin : 4,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
@@ -496,8 +490,9 @@ export function HostBlocksView({ host }: { host: HostBlocks<ProjectRef, Workspac
 }
 
 export function StatusGroupView({ section }: { section: StatusSection<WorkspaceRef> }) {
+  const { metrics } = useSidebar();
   return (
-    <View style={{ paddingBottom: section.collapsed ? 0 : 12 }}>
+    <View style={{ paddingBottom: section.collapsed ? 0 : metrics.statusSpacing }}>
       <DisclosureRow
         label={section.title ?? STATUS_LABEL[section.indicator] ?? section.indicator}
         collapseKey={section.collapseKey}

@@ -50,7 +50,7 @@ function Row({
   variant: RowVariant;
   underHost: boolean;
 }) {
-  const { view, theme, palette, touch, pointer, preferences, directory } = useSidebar();
+  const { view, theme, palette, touch, pointer, preferences, directory, metrics } = useSidebar();
   const paseo = usePaseo();
   const toast = useToast();
   const hover = useHover();
@@ -108,10 +108,11 @@ function Row({
           onPressOut={() => setPressed(false)}
           unstable_pressDelay={touch ? 130 : undefined}
           style={{
-            minHeight: touch ? 44 : 36,
+            minHeight: metrics.rowMinHeight,
             marginBottom: 2,
             // Project rows sit under a header already; keep them tighter on pointer layouts.
-            paddingVertical: variant === "project" && !touch ? 6 : 8,
+            paddingVertical:
+              variant === "project" ? metrics.projectRowPaddingY : metrics.rowPaddingY,
             paddingLeft: variant === "status" && !underHost ? 16 : 8,
             paddingRight: 12,
             borderRadius: 8,

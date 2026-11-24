@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { useHosts, type PluginSidebarViewProps } from "@getpaseo/plugin/client";
 import { ScrollView } from "@getpaseo/plugin/client/ui";
 import { makeColors } from "./colors";
+import { metricsFor } from "./density";
 import { makeHostDirectory, SidebarContextProvider, type SidebarContextValue } from "./context";
 import { IconButton } from "./controls";
 import { DisplayMenu } from "./display-menu";
@@ -74,6 +75,10 @@ function SidebarContent({
     [hostList, localHostId, colors],
   );
   const pointer = view.layout.platform === "web" && !view.layout.compact;
+  const metrics = useMemo(
+    () => metricsFor(appearance.density, !pointer),
+    [appearance.density, pointer],
+  );
   const context = useMemo<SidebarContextValue>(
     () => ({
       view,
@@ -85,8 +90,9 @@ function SidebarContent({
       directory,
       hosts,
       colors,
+      metrics,
     }),
-    [view, palette, pointer, preferences, directory, hosts, colors],
+    [view, palette, pointer, preferences, directory, hosts, colors, metrics],
   );
 
   const activeKey = view.active.workspace?.key ?? null;
@@ -98,8 +104,9 @@ function SidebarContent({
       collapsed: new Set(values.collapsed),
       expanded,
       activeKey,
+      spacing: { project: metrics.projectSpacing, headerMargin: metrics.headerMargin },
     }),
-    [values.rowItems.host, data.multiHost, values.collapsed, hosts, expanded, activeKey],
+    [values.rowItems.host, data.multiHost, values.collapsed, hosts, expanded, activeKey, metrics],
   );
   const projectMode = values.grouping === "project";
   const pinned = useMemo(() => buildPinned(data.pinned, state), [data.pinned, state]);

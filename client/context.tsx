@@ -3,6 +3,7 @@ import type { PluginHostSummary, PluginSidebarViewProps } from "@getpaseo/plugin
 import type { CompareHosts } from "./layout";
 import { compareNames } from "./model";
 import type { Colors } from "./colors";
+import type { Metrics } from "./density";
 import type { IdentityColor, SidebarPalette } from "./palette";
 import type { Preferences } from "./preferences";
 import type { ProjectDirectory } from "./runtime";
@@ -47,6 +48,8 @@ export interface SidebarContextValue {
   hosts: HostDirectory;
   /** Resolved colors for hosts, projects and labels. */
   colors: Colors;
+  /** Row and spacing sizes for the chosen density on this layout. */
+  metrics: Metrics;
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);

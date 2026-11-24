@@ -24,7 +24,13 @@
 
 ## 安装
 
-从 GitHub 安装，并固定到某个发布版本：
+从 [Paseo 插件市场](https://paseo.sh/plugins) 安装：
+
+```bash
+paseo plugin add yiju-zhao/lucid-sidebar
+```
+
+或直接从 GitHub 安装，并固定到某个发布版本：
 
 ```bash
 paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.2.0

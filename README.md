@@ -24,7 +24,13 @@ See [OVERVIEW.md](OVERVIEW.md) for the full description, the data the plugin rea
 
 ## Install
 
-Install from GitHub, pinned to a release:
+Install from the [Paseo plugin registry](https://paseo.sh/plugins):
+
+```bash
+paseo plugin add yiju-zhao/lucid-sidebar
+```
+
+Or straight from GitHub, pinned to a release:
 
 ```bash
 paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.2.0

@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
 import type { PluginHostSummary, PluginSidebarViewProps } from "@getpaseo/plugin/client";
 import type { CompareHosts } from "./layout";
 import { compareNames } from "./model";
-import { identityColor, type IdentityColor, type SidebarPalette } from "./palette";
+import type { Colors } from "./colors";
+import type { IdentityColor, SidebarPalette } from "./palette";
 import type { Preferences } from "./preferences";
 import type { ProjectDirectory } from "./runtime";
 
@@ -20,7 +21,7 @@ export interface HostDirectory {
 export function makeHostDirectory(
   list: readonly PluginHostSummary[],
   localHostId: string | null,
-  dark: boolean,
+  colors: Colors,
 ): HostDirectory {
   const label = (hostId: string) => list.find((host) => host.serverId === hostId)?.label ?? hostId;
   const rank = (hostId: string) => (hostId === localHostId ? 0 : 1);
@@ -28,7 +29,7 @@ export function makeHostDirectory(
     list,
     label,
     isLocal: (hostId) => hostId === localHostId,
-    color: (hostId) => identityColor(hostId, dark),
+    color: (hostId) => colors.host(hostId),
     compare: (a, b) => rank(a) - rank(b) || compareNames(label(a), label(b)) || a.localeCompare(b),
   };
 }
@@ -44,6 +45,8 @@ export interface SidebarContextValue {
   preferences: Preferences;
   directory: ProjectDirectory;
   hosts: HostDirectory;
+  /** Resolved colors for hosts, projects and labels. */
+  colors: Colors;
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);

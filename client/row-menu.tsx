@@ -5,7 +5,6 @@ import { copyText, TextInput, useToast } from "@getpaseo/plugin/client/ui";
 import { useSidebar } from "./context";
 import { MenuBack, MenuCard, MenuDot, MenuItem, MenuNote, MenuSeparator } from "./controls";
 import { compareNames, labelKey, normalizeBranch, type Workspace } from "./model";
-import { identityColor } from "./palette";
 
 /** The inline menus a workspace row opens: its actions, and the worktree archive check. */
 
@@ -86,7 +85,7 @@ export function WorkspaceMenu({
 
 /** Labels on this host with a check for the workspace's own, and a field to create one. */
 function LabelPicker({ workspace, reference }: { workspace: Workspace; reference: WorkspaceRef }) {
-  const { theme, palette, touch } = useSidebar();
+  const { theme, touch, colors } = useSidebar();
   const paseo = usePaseo();
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +132,7 @@ function LabelPicker({ workspace, reference }: { workspace: Workspace; reference
             key={label.key}
             label={label.title}
             checked={current !== undefined}
-            leading={<MenuDot color={identityColor(label.key, palette.dark).fill} />}
+            leading={<MenuDot color={colors.label(label.key).fill} />}
             onPress={() =>
               current !== undefined ? setLabel(current, false) : setLabel(label.title, true)
             }

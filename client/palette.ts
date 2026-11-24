@@ -146,26 +146,6 @@ export function makePalette(theme: PluginTheme): SidebarPalette {
   };
 }
 
-/** The app's identity palette. Order matters: keys hash into it. */
-const IDENTITY = [
-  { base: "#7a6aa8", darkText: "#a392d5", lightText: "#6d49b5" },
-  { base: "#3d7ea6", darkText: "#6aa6ce", lightText: "#3d6985" },
-  { base: "#388068", darkText: "#6cae96", lightText: "#3e6e5d" },
-  { base: "#a4673a", darkText: "#cc8f64", lightText: "#845838" },
-  { base: "#b05c80", darkText: "#d87da3", lightText: "#974168" },
-  { base: "#6a70b8", darkText: "#9299d5", lightText: "#5251c2" },
-  { base: "#368080", darkText: "#6cacab", lightText: "#3e6d6c" },
-  { base: "#b06260", darkText: "#d88381", lightText: "#9c4243" },
-  { base: "#8f7838", darkText: "#b29d64", lightText: "#716239" },
-  { base: "#5179b0", darkText: "#7ba1d5", lightText: "#39649e" },
-] as const;
-
-function hashKey(key: string): number {
-  let hash = 0;
-  for (const character of key) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  return hash;
-}
-
 export interface IdentityColor {
   /** Solid fill, such as a project tile. */
   fill: string;
@@ -173,13 +153,4 @@ export interface IdentityColor {
   text: string;
   /** The fill at 10% alpha. */
   tint: string;
-}
-
-export function identityColor(key: string, dark: boolean): IdentityColor {
-  const entry = IDENTITY[hashKey(key) % IDENTITY.length];
-  return {
-    fill: entry.base,
-    text: dark ? entry.darkText : entry.lightText,
-    tint: `${entry.base}1a`,
-  };
 }

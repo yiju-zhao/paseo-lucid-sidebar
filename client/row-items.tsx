@@ -6,7 +6,6 @@ import type { RowItem, SidebarPreferences } from "../shared/preferences";
 import { useHover, useSidebar, type SidebarContextValue } from "./context";
 import { ChecksGlyph } from "./indicators";
 import { labelKey, normalizeBranch, type Workspace } from "./model";
-import { identityColor } from "./palette";
 import type { PullRequestState, WorkspaceRuntime } from "./runtime";
 
 /**
@@ -105,7 +104,7 @@ const ROW_ITEMS: readonly RowItemDefinition[] = [
       underProject ? null : (
         <Chip
           label={projectName}
-          background={identityColor(viewKey, sidebar.palette.dark).fill}
+          background={sidebar.colors.project(viewKey).fill}
           color={sidebar.palette.onIdentity}
           bold={sidebar.preferences.values.grouping === "project"}
         />
@@ -200,7 +199,7 @@ const ROW_ITEMS: readonly RowItemDefinition[] = [
           style={{ flexDirection: "row", gap: 4, minWidth: 0, flexShrink: 1, overflow: "hidden" }}
         >
           {workspace.labels.map((label) => {
-            const color = identityColor(labelKey(label), sidebar.palette.dark);
+            const color = sidebar.colors.label(labelKey(label));
             return <Chip key={label} label={label} background={color.tint} color={color.text} />;
           })}
         </View>

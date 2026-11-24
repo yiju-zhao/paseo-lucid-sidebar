@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { View } from "react-native";
 import { useHosts, type PluginSidebarViewProps } from "@getpaseo/plugin/client";
 import { ScrollView } from "@getpaseo/plugin/client/ui";
+import { makeColors } from "./colors";
 import { makeHostDirectory, SidebarContextProvider, type SidebarContextValue } from "./context";
 import { IconButton } from "./controls";
 import { DisplayMenu } from "./display-menu";
@@ -63,9 +64,14 @@ function SidebarContent({
   const display = useMenu("display");
 
   const palette = useMemo(() => makePalette(view.theme), [view.theme]);
+  const { appearance, hostOverrides, projectColors } = values;
+  const colors = useMemo(
+    () => makeColors({ appearance, hostOverrides, projectColors }, palette.dark),
+    [appearance, hostOverrides, projectColors, palette.dark],
+  );
   const hosts = useMemo(
-    () => makeHostDirectory(hostList, localHostId, palette.dark),
-    [hostList, localHostId, palette.dark],
+    () => makeHostDirectory(hostList, localHostId, colors),
+    [hostList, localHostId, colors],
   );
   const pointer = view.layout.platform === "web" && !view.layout.compact;
   const context = useMemo<SidebarContextValue>(
@@ -78,8 +84,9 @@ function SidebarContent({
       preferences,
       directory,
       hosts,
+      colors,
     }),
-    [view, palette, pointer, preferences, directory, hosts],
+    [view, palette, pointer, preferences, directory, hosts, colors],
   );
 
   const activeKey = view.active.workspace?.key ?? null;

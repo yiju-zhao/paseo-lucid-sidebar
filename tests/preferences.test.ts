@@ -32,3 +32,36 @@ describe("preference migrations", () => {
     assert.equal(DEFAULT_PREFERENCES.rowItems.host, true);
   });
 });
+
+describe("appearance settings (v5)", () => {
+  it("defaults reproduce 0.3.1", () => {
+    assert.deepEqual(DEFAULT_PREFERENCES.appearance, {
+      preset: "default",
+      density: "standard",
+      tagStyle: "solid",
+      guides: "thin",
+      timeFormat: "relative",
+    });
+    assert.deepEqual(DEFAULT_PREFERENCES.hostOverrides, {});
+    assert.deepEqual(DEFAULT_PREFERENCES.projectColors, {});
+  });
+
+  it("keeps a v4 document's values and adds appearance", () => {
+    const next = migrate({ grouping: "status", rowItems: { host: false } }, 4);
+    assert.equal(next.grouping, "status");
+    assert.equal(next.rowItems.host, false);
+    assert.equal(next.appearance.density, "standard");
+  });
+
+  it("falls back per field on unknown stored values", () => {
+    const next = sidebarSettings.schema.parse({
+      appearance: { preset: "neon", density: "compact" },
+      hostOverrides: { srv_a: { name: "Mini", color: "magenta", icon: "toaster" } },
+      projectColors: { repo: "magenta", ok: "teal" },
+    });
+    assert.equal(next.appearance.preset, "default");
+    assert.equal(next.appearance.density, "compact");
+    assert.deepEqual(next.hostOverrides.srv_a, { name: "Mini", color: "auto", icon: "auto" });
+    assert.deepEqual(next.projectColors, { ok: "teal" });
+  });
+});

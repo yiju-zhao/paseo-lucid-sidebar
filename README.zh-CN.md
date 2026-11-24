@@ -8,6 +8,7 @@
 - 同一项目在多台 host 上时，会分别出现在每台 host 下，只包含该 host 的工作区；没有工作区的项目自动隐藏
 - 每行都有项目标签，颜色与项目图标相同
 - 一个按钮即可折叠或展开所有 host、项目和状态组
+- 设置页可调整配色预设、密度、标签样式、引导线、时间格式，以及每台 host 和每个项目的名称、颜色和图标
 - 内置列表的全部内容：置顶工作区、按项目或状态分组、状态指示、改动行数、pull request、检查、服务和标签，以及相同的显示菜单
 
 <p>
@@ -33,8 +34,8 @@ paseo plugin add yiju-zhao/lucid-sidebar
 或从 npm 或 GitHub 安装，并固定到某个发布版本：
 
 ```bash
-paseo plugin add npm:paseo-lucid-sidebar@0.3.1
-paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.3.1
+paseo plugin add npm:paseo-lucid-sidebar@0.4.0
+paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.4.0
 ```
 
 然后在 设置 > 侧边栏 > 侧边栏视图 中选择 **Lucid sidebar**。安装后 Paseo 不会自动切换视图，重新选择默认视图即可恢复内置列表。
@@ -80,6 +81,8 @@ Paseo 会自己编译 TypeScript，不需要构建步骤。客户端代码只能
 | `client/row-menu.tsx`、`client/display-menu.tsx` | 行菜单和显示菜单 |
 | `client/runtime.tsx` | pull request、检查、服务和项目数据，每台 host 一个监听 |
 | `client/preferences.ts`、`client/save-queue.ts` | 偏好的乐观更新和带版本校验的保存 |
+| `client/colors.ts`、`client/density.ts` | 配色预设和自定义颜色；各密度的尺寸 |
+| `client/settings/` | 设置页：Appearance、Hosts、Projects 三个标签页 |
 | `client/keys.ts` | 所有折叠状态的存储格式 |
 | `client/model.ts`、`client/palette.ts` | 排序和筛选规则；颜色 |
 | `tests/` | 用 tsx 运行的 `node:test` 测试 |

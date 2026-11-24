@@ -2,33 +2,56 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
 import type { PluginHostSummary, PluginSidebarViewProps } from "@getpaseo/plugin/client";
 import type { CompareHosts } from "./layout";
 import { compareNames } from "./model";
-import { identityColor, type IdentityColor, type SidebarPalette } from "./palette";
+import type { Colors } from "./colors";
+import type { Metrics } from "./density";
+import type { HostIcon, SidebarPreferences } from "../shared/preferences";
+import type { IdentityColor, SidebarPalette } from "./palette";
 import type { Preferences } from "./preferences";
 import type { ProjectDirectory } from "./runtime";
 
 /** Everything known about connected hosts, in one place. */
 export interface HostDirectory {
   list: readonly PluginHostSummary[];
+  /** The custom display name, else the host's label. */
   label(hostId: string): string;
   /** The daemon on this device. */
   isLocal(hostId: string): boolean;
   color(hostId: string): IdentityColor;
+  /** Lucide icon name: the chosen icon, else a monitor for this device and a server elsewhere. */
+  icon(hostId: string): string;
   /** Local host first, then by label. */
   compare: CompareHosts;
 }
 
+const HOST_ICON: Record<Exclude<HostIcon, "auto">, string> = {
+  laptop: "Laptop",
+  desktop: "Monitor",
+  server: "Server",
+  gpu: "Cpu",
+  cloud: "Cloud",
+};
+
 export function makeHostDirectory(
   list: readonly PluginHostSummary[],
   localHostId: string | null,
-  dark: boolean,
+  overrides: SidebarPreferences["hostOverrides"],
+  colors: Colors,
 ): HostDirectory {
-  const label = (hostId: string) => list.find((host) => host.serverId === hostId)?.label ?? hostId;
+  const label = (hostId: string) =>
+    overrides[hostId]?.name.trim() ||
+    list.find((host) => host.serverId === hostId)?.label ||
+    hostId;
   const rank = (hostId: string) => (hostId === localHostId ? 0 : 1);
   return {
     list,
     label,
     isLocal: (hostId) => hostId === localHostId,
-    color: (hostId) => identityColor(hostId, dark),
+    color: (hostId) => colors.host(hostId),
+    icon: (hostId) => {
+      const icon = overrides[hostId]?.icon ?? "auto";
+      if (icon !== "auto") return HOST_ICON[icon];
+      return hostId === localHostId ? "Monitor" : "Server";
+    },
     compare: (a, b) => rank(a) - rank(b) || compareNames(label(a), label(b)) || a.localeCompare(b),
   };
 }
@@ -44,6 +67,12 @@ export interface SidebarContextValue {
   preferences: Preferences;
   directory: ProjectDirectory;
   hosts: HostDirectory;
+  /** Resolved colors for hosts, projects and labels. */
+  colors: Colors;
+  /** Row and spacing sizes for the chosen density on this layout. */
+  metrics: Metrics;
+  /** Opens the plugin's settings page; absent on apps without it. */
+  openSettings?: () => void;
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);

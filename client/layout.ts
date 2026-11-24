@@ -36,12 +36,9 @@ export interface ListState {
   expanded: ReadonlySet<string>;
   /** Key of the open workspace. */
   activeKey: string | null;
+  /** Space below an open project block, and below a project header (all a folded block has). */
+  spacing: { project: number; headerMargin: number };
 }
-
-/** Space below an open project block. Tighter than the built-in 12, so blocks read as a list. */
-export const PROJECT_SPACING = 6;
-/** Space below a project header, which is all a folded block has. */
-export const HEADER_MARGIN = 2;
 
 // Row lists ----------------------------------------------------------------------------------
 
@@ -214,7 +211,7 @@ export function buildProjects<P extends Item, T extends Item>(
           isDone: (item) => facts.indicators.get(item.key) === "done",
         },
       ),
-      spacing: collapsed ? 0 : PROJECT_SPACING,
+      spacing: collapsed ? 0 : state.spacing.project,
     });
   }
 
@@ -234,7 +231,7 @@ export function buildProjects<P extends Item, T extends Item>(
         collapsed,
         count: own.length,
         blocks: own,
-        guideBottom: (last.spacing || HEADER_MARGIN) + 2,
+        guideBottom: (last.spacing || state.spacing.headerMargin) + 2,
       };
     }),
   };

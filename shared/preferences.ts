@@ -7,6 +7,32 @@ export const TITLE_SOURCES = ["title", "branch"] as const;
 export const TRAILING = ["timestamp", "diff", "none"] as const;
 export const CHECKS_DISPLAY = ["iconAndText", "icon", "none"] as const;
 
+export const COLOR_NAMES = [
+  "violet",
+  "sky",
+  "emerald",
+  "orange",
+  "pink",
+  "indigo",
+  "teal",
+  "red",
+  "amber",
+  "blue",
+] as const;
+export const PRESETS = ["default", "soft", "vivid", "mono"] as const;
+export const DENSITIES = ["compact", "standard", "comfortable"] as const;
+export const TAG_STYLES = ["solid", "tinted", "outline"] as const;
+export const GUIDES = ["off", "thin", "thick"] as const;
+export const TIME_FORMATS = ["relative", "absolute"] as const;
+export const HOST_ICONS = ["auto", "laptop", "desktop", "server", "gpu", "cloud"] as const;
+
+export type ColorName = (typeof COLOR_NAMES)[number];
+export type Preset = (typeof PRESETS)[number];
+export type Density = (typeof DENSITIES)[number];
+export type TagStyle = (typeof TAG_STYLES)[number];
+export type Guides = (typeof GUIDES)[number];
+export type TimeFormat = (typeof TIME_FORMATS)[number];
+export type HostIcon = (typeof HOST_ICONS)[number];
 export type Grouping = (typeof GROUPINGS)[number];
 export type Sort = (typeof SORTS)[number];
 export type TitleSource = (typeof TITLE_SOURCES)[number];
@@ -25,6 +51,56 @@ const rowItems = z.object({
 
 export type RowItem = keyof z.output<typeof rowItems>;
 
+/** Settings page values. Each field falls back to its default on a value it does not know. */
+const appearance = z.object({
+  preset: z.enum(PRESETS).catch("default"),
+  density: z.enum(DENSITIES).catch("standard"),
+  tagStyle: z.enum(TAG_STYLES).catch("solid"),
+  guides: z.enum(GUIDES).catch("thin"),
+  timeFormat: z.enum(TIME_FORMATS).catch("relative"),
+});
+
+const APPEARANCE_DEFAULTS: z.output<typeof appearance> = {
+  preset: "default",
+  density: "standard",
+  tagStyle: "solid",
+  guides: "thin",
+  timeFormat: "relative",
+};
+
+const hostOverride = z.object({
+  /** Shown instead of the host's label; blank keeps the label. */
+  name: z.string().catch(""),
+  color: z.enum([...COLOR_NAMES, "auto"]).catch("auto"),
+  icon: z.enum(HOST_ICONS).catch("auto"),
+});
+
+/** Server id to override; an entry that is not an override is dropped, not the whole map. */
+const hostOverrides = z
+  .record(z.string(), z.unknown())
+  .catch({})
+  .transform((entries) => {
+    const kept: Record<string, z.output<typeof hostOverride>> = {};
+    for (const [hostId, value] of Object.entries(entries)) {
+      const parsed = hostOverride.safeParse(value);
+      if (parsed.success) kept[hostId] = parsed.data;
+    }
+    return kept;
+  });
+
+/** View key to color; entries with an unknown color are dropped. */
+const projectColors = z
+  .record(z.string(), z.unknown())
+  .catch({})
+  .transform(
+    (entries) =>
+      Object.fromEntries(
+        Object.entries(entries).filter(([, color]) =>
+          (COLOR_NAMES as readonly unknown[]).includes(color),
+        ),
+      ) as Record<string, ColorName>,
+  );
+
 const schema = z.object({
   grouping: z.enum(GROUPINGS).default("project"),
   sort: z.enum(SORTS).default("created"),
@@ -42,6 +118,12 @@ const schema = z.object({
   labelFilter: z.array(z.string()).default([]),
   /** Collapse keys; client/keys.ts owns their format. */
   collapsed: z.array(z.string()).default([]),
+  // Missing or not an object (null, a newer shape): fall back rather than invalidate the document.
+  appearance: appearance.default(APPEARANCE_DEFAULTS).catch(APPEARANCE_DEFAULTS),
+  /** Per server id: display name, color and icon. */
+  hostOverrides: hostOverrides.default({}),
+  /** Per project view key: tag and tile color. */
+  projectColors: projectColors.default({}),
 });
 
 /**
@@ -51,7 +133,7 @@ const schema = z.object({
 export const sidebarSettings = defineSettings({
   id: "sidebar",
   scope: "device",
-  version: 4,
+  version: 5,
   migrate: (values, fromVersion) => {
     const stored = { ...(values as Record<string, unknown>) };
     // v2: the project item now leads the second line; turn it on once.

@@ -1,4 +1,5 @@
 import { useCallback, type ReactNode } from "react";
+import type { Guides } from "../shared/preferences";
 import { Pressable, Text, View } from "react-native";
 import { useProject, type ProjectRef, type WorkspaceRef } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/ui";
@@ -6,13 +7,7 @@ import { disclosureLabel, fill, useHover, useSidebar } from "./context";
 import { IconButton } from "./controls";
 import { IndicatorGlyph, LeadingSlot, ProjectStatusVisual } from "./indicators";
 import { keys } from "./keys";
-import {
-  HEADER_MARGIN,
-  type HostBlocks,
-  type ProjectBlock,
-  type RowList,
-  type StatusSection,
-} from "./layout";
+import { type HostBlocks, type ProjectBlock, type RowList, type StatusSection } from "./layout";
 import { STATUS_LABEL, toggled } from "./model";
 import { withAlpha } from "./palette";
 import { useToggleExpanded } from "./ui-state";
@@ -42,14 +37,14 @@ export function SectionHeader({
   collapsed?: boolean;
   actions?: ReactNode;
 }) {
-  const { theme, touch, pointer } = useSidebar();
+  const { theme, touch, pointer, metrics } = useSidebar();
   const hover = useHover();
   const toggle = useCollapseToggle(collapseKey ?? "");
   const label = <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>{title}</Text>;
   return (
     <View
       style={{
-        minHeight: touch ? 44 : 36,
+        minHeight: metrics.headerMinHeight,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
@@ -114,7 +109,7 @@ function DisclosureRow({
   collapsed: boolean;
   actions?: ReactNode;
 }) {
-  const { theme, palette, touch, pointer } = useSidebar();
+  const { theme, palette, pointer, metrics } = useSidebar();
   const hover = useHover();
   const toggle = useCollapseToggle(collapseKey);
   const showActions = hover.hovered || !pointer;
@@ -127,11 +122,11 @@ function DisclosureRow({
         accessibilityState={{ expanded: !collapsed }}
         onPress={toggle}
         style={({ pressed }) => ({
-          minHeight: touch ? 44 : compact ? 30 : 36,
-          paddingVertical: compact && !touch ? 5 : 8,
+          minHeight: compact ? metrics.projectHeaderMinHeight : metrics.headerMinHeight,
+          paddingVertical: compact ? metrics.projectHeaderPaddingY : metrics.headerPaddingY,
           paddingHorizontal: 8,
           borderRadius: 8,
-          marginBottom: compact ? HEADER_MARGIN : 4,
+          marginBottom: compact ? metrics.headerMargin : 4,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
@@ -183,6 +178,8 @@ function DisclosureRow({
   );
 }
 
+const GUIDE_WIDTH: Record<Guides, number> = { off: 0, thin: 1, thick: 2 };
+
 /** Host heading metrics, shared by the heading and the guide line below its icon. */
 const HOST_HEADING = {
   section: { size: 13, lineHeight: 18, marginTop: 6, marginBottom: 2, paddingVertical: 4 },
@@ -215,7 +212,8 @@ function HostGroup({
   guideBottom?: number;
   children: ReactNode;
 }) {
-  const { theme, palette, pointer, hosts } = useSidebar();
+  const { theme, palette, pointer, hosts, preferences } = useSidebar();
+  const guideWidth = GUIDE_WIDTH[preferences.values.appearance.guides];
   const hover = useHover();
   const toggle = useCollapseToggle(collapseKey);
   const metrics = section ? HOST_HEADING.section : HOST_HEADING.inline;
@@ -248,11 +246,7 @@ function HostGroup({
           backgroundColor: hover.hovered ? palette.hover : "transparent",
         })}
       >
-        <Icon
-          name={hosts.isLocal(hostId) ? "Monitor" : "Server"}
-          size={metrics.size}
-          color={color}
-        />
+        <Icon name={hosts.icon(hostId)} size={metrics.size} color={color} />
         <Text
           numberOfLines={1}
           style={{
@@ -287,18 +281,20 @@ function HostGroup({
       {collapsed ? null : (
         <>
           <View style={{ paddingLeft: guideX + 5 }}>{children}</View>
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              left: guideX - 0.5,
-              width: 1,
-              top: iconCentre + metrics.size / 2 + 3,
-              bottom: guideBottom,
-              borderRadius: 0.5,
-              backgroundColor: withAlpha(color, 0.45),
-            }}
-          />
+          {guideWidth > 0 ? (
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: guideX - guideWidth / 2,
+                width: guideWidth,
+                top: iconCentre + metrics.size / 2 + 3,
+                bottom: guideBottom,
+                borderRadius: guideWidth / 2,
+                backgroundColor: withAlpha(color, 0.45),
+              }}
+            />
+          ) : null}
         </>
       )}
     </View>
@@ -496,8 +492,9 @@ export function HostBlocksView({ host }: { host: HostBlocks<ProjectRef, Workspac
 }
 
 export function StatusGroupView({ section }: { section: StatusSection<WorkspaceRef> }) {
+  const { metrics } = useSidebar();
   return (
-    <View style={{ paddingBottom: section.collapsed ? 0 : 12 }}>
+    <View style={{ paddingBottom: section.collapsed ? 0 : metrics.statusSpacing }}>
       <DisclosureRow
         label={section.title ?? STATUS_LABEL[section.indicator] ?? section.indicator}
         collapseKey={section.collapseKey}

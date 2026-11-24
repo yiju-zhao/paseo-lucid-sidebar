@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 import type { WorkspaceIndicator } from "@getpaseo/plugin";
 import {
   buildPinned,
-  HEADER_MARGIN,
   buildProjects,
   buildRowList,
   buildStatusGroups,
@@ -29,6 +28,7 @@ function state(patch: Partial<ListState> = {}): ListState {
     collapsed: new Set(),
     expanded: new Set(),
     activeKey: null,
+    spacing: { project: 6, headerMargin: 2 },
     ...patch,
   };
 }
@@ -182,7 +182,7 @@ describe("buildProjects", () => {
       noFilters,
     );
     assert.ok(layout.hosts?.every((host) => host.blocks.every((block) => block.collapsed)));
-    assert.ok(layout.hosts?.every((host) => host.guideBottom === HEADER_MARGIN + 2));
+    assert.ok(layout.hosts?.every((host) => host.guideBottom === 2 + 2));
   });
 
   it("leaves out projects with no listed workspace, and hosts left with none", () => {

@@ -5,7 +5,6 @@ import { Icon } from "@getpaseo/plugin/client/ui";
 import { useSidebar } from "./context";
 import { Dot } from "./controls";
 import { projectInitial } from "./model";
-import { identityColor } from "./palette";
 import type { CheckSummary } from "./runtime";
 
 /** Status glyphs and project tiles, drawn like the built-in sidebar. */
@@ -190,14 +189,14 @@ export function ProjectTile({
   name: string;
   size: number;
 }) {
-  const { palette } = useSidebar();
+  const { palette, colors } = useSidebar();
   return (
     <View
       style={{
         width: size,
         height: size,
         borderRadius: Math.round(size * 0.25),
-        backgroundColor: identityColor(viewKey, palette.dark).fill,
+        backgroundColor: colors.project(viewKey).fill,
         alignItems: "center",
         justifyContent: "center",
       }}

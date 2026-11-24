@@ -16,7 +16,6 @@ import { useSidebar } from "./context";
 import { MenuBack, MenuCard, MenuDot, MenuItem, MenuNote, MenuSeparator } from "./controls";
 import { ProjectTile } from "./indicators";
 import { toggled } from "./model";
-import { identityColor } from "./palette";
 import type { SidebarData } from "./queries";
 import { ROW_ITEM_TOGGLES } from "./row-items";
 import { useCloseMenu } from "./ui-state";
@@ -50,7 +49,7 @@ function filterValue(selected: readonly string[], name?: (id: string) => string)
 }
 
 export function DisplayMenu({ data }: { data: Pick<SidebarData, "labels" | "projectOptions"> }) {
-  const { preferences, hosts, theme, palette } = useSidebar();
+  const { preferences, hosts, theme, colors, openSettings } = useSidebar();
   const close = useCloseMenu();
   const values = preferences.values;
   const [page, setPage] = useState<Page>("root");
@@ -175,7 +174,7 @@ export function DisplayMenu({ data }: { data: Pick<SidebarData, "labels" | "proj
           {hosts.list.map((host) => (
             <MenuItem
               key={host.serverId}
-              label={host.label}
+              label={hosts.label(host.serverId)}
               checked={values.hostFilter.includes(host.serverId)}
               leading={
                 <MenuDot
@@ -219,7 +218,7 @@ export function DisplayMenu({ data }: { data: Pick<SidebarData, "labels" | "proj
               key={label.key}
               label={label.title}
               checked={values.labelFilter.includes(label.key)}
-              leading={<MenuDot color={identityColor(label.key, palette.dark).fill} />}
+              leading={<MenuDot color={colors.label(label.key).fill} />}
               onPress={() => toggleIn("labelFilter", label.key)}
             />
           ))}
@@ -307,6 +306,19 @@ export function DisplayMenu({ data }: { data: Pick<SidebarData, "labels" | "proj
         checked={values.showBackground}
         onPress={() => set({ showBackground: !values.showBackground })}
       />
+      {openSettings ? (
+        <>
+          <MenuSeparator />
+          <MenuItem
+            icon="SlidersHorizontal"
+            label="All settings…"
+            onPress={() => {
+              close();
+              openSettings();
+            }}
+          />
+        </>
+      ) : null}
       {preferences.error ? <MenuNote text={preferences.error} error /> : null}
     </MenuCard>
   );

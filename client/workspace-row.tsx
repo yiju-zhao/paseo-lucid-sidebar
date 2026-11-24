@@ -6,7 +6,7 @@ import { useNow } from "./clock";
 import { useHover, useSidebar } from "./context";
 import { IconButton } from "./controls";
 import { StatusIndicator } from "./indicators";
-import { compactNumber, displayTitle, formatAge, type Workspace } from "./model";
+import { compactNumber, displayTitle, formatTime, type Workspace } from "./model";
 import { MetaRow } from "./row-items";
 import { ArchiveConfirm, errorText, WorkspaceMenu } from "./row-menu";
 import { useWorkspaceRuntime } from "./runtime";
@@ -50,7 +50,7 @@ function Row({
   variant: RowVariant;
   underHost: boolean;
 }) {
-  const { view, theme, palette, touch, pointer, preferences, directory } = useSidebar();
+  const { view, theme, palette, touch, pointer, preferences, directory, metrics } = useSidebar();
   const paseo = usePaseo();
   const toast = useToast();
   const hover = useHover();
@@ -108,10 +108,11 @@ function Row({
           onPressOut={() => setPressed(false)}
           unstable_pressDelay={touch ? 130 : undefined}
           style={{
-            minHeight: touch ? 44 : 36,
+            minHeight: metrics.rowMinHeight,
             marginBottom: 2,
             // Project rows sit under a header already; keep them tighter on pointer layouts.
-            paddingVertical: variant === "project" && !touch ? 6 : 8,
+            paddingVertical:
+              variant === "project" ? metrics.projectRowPaddingY : metrics.rowPaddingY,
             paddingLeft: variant === "status" && !underHost ? 16 : 8,
             paddingRight: 12,
             borderRadius: 8,
@@ -256,7 +257,11 @@ function TrailingValue({ workspace }: { workspace: Workspace }) {
   const trailing = preferences.values.trailing;
   const text = { fontSize: 12, lineHeight: 20, height: 20 };
   if (trailing === "timestamp") {
-    const age = formatAge(workspace.statusEnteredAt, now);
+    const age = formatTime(
+      workspace.statusEnteredAt,
+      now,
+      preferences.values.appearance.timeFormat,
+    );
     return age ? (
       <Text style={{ ...text, color: palette.extraMuted, minWidth: 18 }}>{age}</Text>
     ) : null;

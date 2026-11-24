@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { View } from "react-native";
 import { useHosts, type PluginSidebarViewProps } from "@getpaseo/plugin/client";
 import { ScrollView } from "@getpaseo/plugin/client/ui";
+import { makeColors } from "./colors";
+import { metricsFor } from "./density";
 import { makeHostDirectory, SidebarContextProvider, type SidebarContextValue } from "./context";
 import { IconButton } from "./controls";
 import { DisplayMenu } from "./display-menu";
@@ -35,13 +37,16 @@ import { UiStateProvider, useExpanded, useMenu } from "./ui-state";
  * The registered sidebar view: queries → list model → renderers. Nothing renders until the
  * stored preferences are read, so nothing can save over them.
  */
-export function WorkspaceSidebar(view: PluginSidebarViewProps) {
+export function WorkspaceSidebar({
+  openSettings,
+  ...view
+}: PluginSidebarViewProps & { openSettings?: () => void }) {
   const preferences = usePreferences();
   if (preferences.loading) return null;
   return (
     <RuntimeProvider watchWorkspaces={needsWorkspaceRuntime(preferences.values)}>
       <UiStateProvider>
-        <SidebarContent view={view} preferences={preferences} />
+        <SidebarContent view={view} preferences={preferences} openSettings={openSettings} />
       </UiStateProvider>
     </RuntimeProvider>
   );
@@ -50,9 +55,11 @@ export function WorkspaceSidebar(view: PluginSidebarViewProps) {
 function SidebarContent({
   view,
   preferences,
+  openSettings,
 }: {
   view: PluginSidebarViewProps;
   preferences: Preferences;
+  openSettings?: () => void;
 }) {
   const values = preferences.values;
   const directory = useProjectDirectory();
@@ -63,11 +70,20 @@ function SidebarContent({
   const display = useMenu("display");
 
   const palette = useMemo(() => makePalette(view.theme), [view.theme]);
+  const { appearance, hostOverrides, projectColors } = values;
+  const colors = useMemo(
+    () => makeColors({ appearance, hostOverrides, projectColors }, palette.dark),
+    [appearance, hostOverrides, projectColors, palette.dark],
+  );
   const hosts = useMemo(
-    () => makeHostDirectory(hostList, localHostId, palette.dark),
-    [hostList, localHostId, palette.dark],
+    () => makeHostDirectory(hostList, localHostId, hostOverrides, colors),
+    [hostList, localHostId, hostOverrides, colors],
   );
   const pointer = view.layout.platform === "web" && !view.layout.compact;
+  const metrics = useMemo(
+    () => metricsFor(appearance.density, !pointer),
+    [appearance.density, pointer],
+  );
   const context = useMemo<SidebarContextValue>(
     () => ({
       view,
@@ -78,8 +94,11 @@ function SidebarContent({
       preferences,
       directory,
       hosts,
+      colors,
+      metrics,
+      openSettings,
     }),
-    [view, palette, pointer, preferences, directory, hosts],
+    [view, palette, pointer, preferences, directory, hosts, colors, metrics, openSettings],
   );
 
   const activeKey = view.active.workspace?.key ?? null;
@@ -91,8 +110,9 @@ function SidebarContent({
       collapsed: new Set(values.collapsed),
       expanded,
       activeKey,
+      spacing: { project: metrics.projectSpacing, headerMargin: metrics.headerMargin },
     }),
-    [values.rowItems.host, data.multiHost, values.collapsed, hosts, expanded, activeKey],
+    [values.rowItems.host, data.multiHost, values.collapsed, hosts, expanded, activeKey, metrics],
   );
   const projectMode = values.grouping === "project";
   const pinned = useMemo(() => buildPinned(data.pinned, state), [data.pinned, state]);

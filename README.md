@@ -8,6 +8,7 @@ A [Paseo](https://paseo.sh) sidebar view for people who run Paseo on more than o
 - A project on several hosts appears under each of them, with only that host's workspaces; projects with no workspaces stay hidden
 - Project tags on every row, in the same color as the project tile
 - Fold or unfold every host, project and status group with one button
+- A settings page for color presets, density, tag style, guide lines, time format, and per-host and per-project names, colors and icons
 - Everything the built-in list shows: pinned workspaces, project or status grouping, status indicators, diff stats, pull requests, checks, services and labels, with the same display menu
 
 <p>
@@ -33,8 +34,8 @@ paseo plugin add yiju-zhao/lucid-sidebar
 Or from npm or GitHub, pinned to a release:
 
 ```bash
-paseo plugin add npm:paseo-lucid-sidebar@0.3.1
-paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.3.1
+paseo plugin add npm:paseo-lucid-sidebar@0.4.0
+paseo plugin add git:yiju-zhao/paseo-lucid-sidebar --ref v0.4.0
 ```
 
 Then choose **Lucid sidebar** under Settings > Sidebar > Sidebar view. Paseo does not switch views on install, and choosing the default view again restores the built-in list.
@@ -80,6 +81,8 @@ Paseo compiles the TypeScript itself; there is no build step. Client code must u
 | `client/row-menu.tsx`, `client/display-menu.tsx` | The row menu and the display menu |
 | `client/runtime.tsx` | Pull request, checks, service and project data, one watcher per host |
 | `client/preferences.ts`, `client/save-queue.ts` | Optimistic, revision-checked saves of the preferences |
+| `client/colors.ts`, `client/density.ts` | Color presets and overrides; sizes per density |
+| `client/settings/` | The settings page: Appearance, Hosts and Projects tabs |
 | `client/keys.ts` | Every stored collapse key format |
 | `client/model.ts`, `client/palette.ts` | Sorting and filtering rules; colors |
 | `tests/` | `node:test` suites run with tsx |
